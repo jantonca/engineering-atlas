@@ -1,0 +1,5 @@
+interface:
+  display_name: Visual Lesson
+  short_description: Create clear, visual Engineering Atlas lessons
+  default_prompt: Use $visual-lesson to create or improve the requested Engineering
+    Atlas lesson.

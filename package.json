@@ -1,0 +1,31 @@
+{
+  "name": "engineering-atlas",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.20.0",
+  "engines": {
+    "node": ">=24.22.3"
+  },
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build && pagefind --site dist",
+    "preview": "wrangler dev",
+    "check": "astro check"
+  },
+  "dependencies": {
+    "@astrojs/mdx": "8.1.6",
+    "astro": "7.4.13"
+  },
+  "devDependencies": {
+    "@astrojs/check": "0.9.12",
+    "pagefind": "1.6.0",
+    "typescript": "6.0.3",
+    "wrangler": "4.166.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "workerd"
+    ]
+  }
+}

@@ -1,0 +1,5 @@
+interface:
+  display_name: Atlas Review
+  short_description: Review code, teaching accuracy and visual quality
+  default_prompt: Use $atlas-review to review the current changes. Report findings
+    without editing source files.
