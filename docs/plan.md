@@ -88,7 +88,7 @@ Some ideas belong to more than one topic. Each idea is explained fully in one gu
 
 ## Guide template
 
-Every guide uses the same sections:
+Every guide covers these eight parts. The page can show them in any order and in any form, for example as visual scenes:
 
 1. **Summary.** One page for a quick review.
 2. **Common questions.** Questions asked in interviews and design reviews, each with a short answer. Some are scenarios: something has gone wrong, and you explain what you would do.

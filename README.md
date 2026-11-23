@@ -19,6 +19,5 @@ Requires the Node version in `.node-version` and pnpm.
 | --- | --- |
 | `src/` | Site source: pages, layouts, components, lesson content |
 | `docs/plan.md` | Study plan: topics, order and guide template |
-| `docs/design-reference/` | Visual direction specimen and screenshots |
 | `docs/agent-skills.md` | How to use the repo's agent skills |
 | `AGENTS.md` | Rules for working in this repo |

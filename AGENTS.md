@@ -4,28 +4,28 @@ Build a visually striking personal engineering study site. Make complex ideas ea
 
 ## Source of truth
 
-- Read the relevant topic and template in `docs/plan.md` before authoring. Preserve its scope, study order, eight sections, separate adoption/maturity labels and one-home-per-idea links.
+- Read the relevant topic and template in `docs/plan.md` before authoring. Preserve its scope, study order, separate adoption/maturity labels and one-home-per-idea links. Every guide covers all eight template parts, but the page may order and present them freely, for example as scenes.
 - The website is the study experience. Keep lesson content in Markdown/MDX; do not maintain a separate edition.
 - Verify current tool, version and status claims against primary sources; include real links and checked dates. Treat the plan's tool lists as research prompts, not verified facts. Mark uncertainty instead of guessing.
 - Write plain English with short, connected explanations. Preserve technical depth and trade-offs; do not turn lessons into coding exercises or framework tutorials.
 
 ## Keep it small
 
-- Use Astro, static output, Markdown/MDX and Cloudflare Workers Static Assets. Build navigation, search (Pagefind), table of contents and theme controls as small, accessible Astro components that work without client JavaScript where possible.
-- Prefer Astro components, CSS custom properties and native HTML. Add client JavaScript only for useful interaction, and a framework or library only when it solves a current need.
+- Use Astro, static output, Markdown/MDX and Cloudflare Workers Static Assets. Build navigation, search (Pagefind), table of contents and theme controls as small, accessible Astro components.
+- Prefer Astro components, CSS custom properties and native HTML. Use client JavaScript wherever it makes a lesson clearer or more engaging. Add a framework or library only when it solves a current need; animation, graphics and diagram libraries are fine when a scene needs them.
 - Reuse existing patterns and keep components focused. Extract genuine repetition, not speculative abstractions. Justify each added dependency; avoid unrelated upgrades.
 - Do not add accounts, a database, CMS, backend, agent orchestration or tooling layers without a concrete requirement.
 - Finish one representative guide end-to-end before scaling the design to the remaining topics.
 
 ## Visual learning
 
-- Design the overview first: a clear takeaway, strong type hierarchy, generous whitespace and a prominent concept visual. Avoid oversized marketing heroes.
-- Use labelled diagrams for relationships and flows, timelines for sequences, comparison matrices for choices and annotated examples for consequences. Each visual must teach, not decorate.
+- Design the overview first: a clear takeaway, strong type hierarchy, generous whitespace and a prominent concept visual. Big full-screen moments are welcome when each one teaches a single idea.
+- Choose whatever visual form teaches the idea best: labelled diagrams, timelines, comparisons, annotated examples, simulators, scroll-driven stories, games or drawn scenes. Each visual must teach, not decorate.
 - Keep diagrams editable using SVG, HTML/CSS or existing diagram tooling. Check labels and arrows; add a short caption and text equivalent. Keep essential explanations selectable rather than baked into images.
-- Build a small, coherent set of visual patterns with shared spacing, typography and colour tokens. Avoid walls of text, repetitive card grids, unrelated stock art and random styling per lesson.
+- Share one base of spacing, typography and colour tokens across the site. Within it, give each lesson its own signature visual. Avoid walls of text, repetitive card grids and unrelated stock art.
 - Use progressive disclosure for optional depth and self-test answers, not essential explanations. Keep questions visible before revealing answers. No nonfunctional controls, invented scores or fake progress.
 - Make layouts and diagrams usable on narrow screens; never shrink labels into illegibility. Support keyboard access, visible focus, sufficient contrast and both themes. Never rely on colour alone.
-- Use motion only to explain a process or state change, with user control and a reduced-motion alternative. Preserve core reading without client JavaScript.
+- Use motion freely to explain, focus attention or add delight. Respect reduced-motion settings and give long animations user control.
 
 ## Working in the repo
 
