@@ -5,16 +5,35 @@ import { nextGuide, stateLabel } from '../data/guides';
 
 const { frontmatter } = Astro.props;
 const next = nextGuide(frontmatter.number);
+type NavItem = { id: string; label: string; n?: string };
+const nav: NavItem[] = frontmatter.nav ?? [];
 ---
 
 <Base title={frontmatter.title} description={frontmatter.description}>
-  <LocalNav title={frontmatter.title} items={frontmatter.nav ?? []} />
+  <LocalNav title={frontmatter.title} items={nav} />
   <main data-pagefind-body>
     <header class="guide-head" id="top">
       <p class="guide-number" aria-hidden="true">{frontmatter.number}</p>
       <h1 class="guide-title">{frontmatter.title}</h1>
       <p class="guide-lede">{frontmatter.lede ?? frontmatter.description}</p>
     </header>
+    {
+      /* Contents for readers without JavaScript. With JavaScript, the sticky navigation shows them. */
+      nav.length > 0 && (
+        <nav id="contents" class="guide-contents" aria-label="Contents" data-pagefind-ignore>
+          <ol>
+            {nav.map((it: NavItem) => (
+              <li>
+                <a href={`#${it.id}`}>
+                  {it.n && <span class="gc-n">{it.n}</span>}
+                  {it.label}
+                </a>
+              </li>
+            ))}
+          </ol>
+        </nav>
+      )
+    }
     <div class="guide-body">
       <slot />
     </div>
@@ -75,6 +94,46 @@ const next = nextGuide(frontmatter.number);
     color: var(--ink-2);
     font-size: clamp(1.125rem, 1.6vw, 1.375rem);
     line-height: 1.4;
+  }
+
+  .guide-contents {
+    max-width: var(--page-max);
+    margin-inline: auto;
+    padding: 0 var(--gutter) var(--space-4);
+  }
+
+  :global(:root[data-js]) .guide-contents {
+    display: none;
+  }
+
+  .guide-contents ol {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 var(--space-4);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .guide-contents a {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.4em;
+    min-height: 44px;
+    padding-block: var(--space-2);
+    color: var(--ink-2);
+    font-size: var(--text-small);
+    text-decoration: none;
+  }
+
+  .guide-contents a:hover {
+    color: var(--ink);
+  }
+
+  .gc-n {
+    color: var(--ink);
+    font-weight: 850;
+    font-variation-settings: 'wdth' 125;
   }
 
   @media (max-width: 40rem) {

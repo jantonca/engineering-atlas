@@ -8,6 +8,7 @@ nav:
   - { id: map, label: Map }
   - { id: render-pipeline, n: '1', label: HTML to pixels }
   - { id: event-loop, n: '2', label: Event loop }
+  - { id: web-workers, n: '3', label: Web workers }
   - { id: out-of-order, n: '4', label: Out of order }
   - { id: http-caching, n: '5', label: HTTP caching }
   - { id: quiz, label: Test yourself }
@@ -17,6 +18,7 @@ import Chapter from '../components/Chapter.astro';
 import BugMap from '../components/web-platform/BugMap.astro';
 import RenderPipeline from '../components/web-platform/RenderPipeline.astro';
 import EventLoopSim from '../components/web-platform/EventLoopSim.astro';
+import WorkerSim from '../components/web-platform/WorkerSim.astro';
 import RaceSim from '../components/web-platform/RaceSim.astro';
 import CachingSimulator from '../components/web-platform/CachingSimulator.astro';
 import Quiz from '../components/Quiz.astro';
@@ -88,7 +90,7 @@ import QuizItem from '../components/QuizItem.astro';
 
     Splitting long work into small tasks lets the event loop handle taps in between. This is called yielding. The work takes a little longer in total, but the page stays responsive. `scheduler.yield()` is made for this, but it does not work in every browser yet, so you need a fallback such as `setTimeout()`.
 
-    A web worker takes the work off the main thread completely. A worker runs in a separate thread, but it cannot change the page directly. [Question 3 in the self-test](#qz-3) covers workers until chapter 3 is written.
+    A web worker takes the work off the main thread completely. A worker runs in a separate thread, but it cannot change the page directly. [Chapter 3](#web-workers) shows when that is worth it.
 
     ### A simplified model
 
@@ -97,6 +99,52 @@ import QuizItem from '../components/QuizItem.astro';
     The result shows the whole interaction: the wait in the queue, the handler, and the wait for the next screen update. Interaction to Next Paint (INP) measures the same span for real users. For one visit, INP reports about the slowest interaction. Across many visits, the 75th percentile is the value that counts.
 
     Sources, checked 23 November 2026, INP and rendering pipeline checked 25 November 2026: [web.dev, Rendering performance](https://web.dev/articles/rendering-performance), [web.dev, Optimize long tasks](https://web.dev/articles/optimize-long-tasks), [web.dev, Interaction to Next Paint](https://web.dev/articles/inp), [Long Tasks API, terminology](https://wicg.github.io/longtasks/#sec-terminology), [MDN, Scheduler.yield()](https://developer.mozilla.org/en-US/docs/Web/API/Scheduler/yield), [HTML Standard, event loop processing model](https://html.spec.whatwg.org/multipage/webappapis.html#event-loop-processing-model).
+  </Fragment>
+</Chapter>
+
+<Chapter
+  id="web-workers"
+  n="3"
+  topic="Web workers"
+  question="When would you move work to a web worker?"
+  title="Heavy work, another thread."
+>
+  <Fragment slot="answer">
+    A web worker runs JavaScript on a background thread. Move work there when it is heavy and does not need the page, such as parsing a big file. The main thread stays free for typing and clicks. The result comes back in a message. Ordinary objects in a message are copied, so send back only what the page needs.
+  </Fragment>
+
+  <WorkerSim />
+
+  <Fragment slot="after">
+    ### What a worker cannot do
+
+    A worker cannot read or change the DOM. It has no `document`. It can still use many browser features, such as `fetch()`, WebSockets and IndexedDB. So the worker does the work, and the main thread shows the result.
+
+    The page and the worker talk with `postMessage()`. By default, the data in a message is copied, not shared. The sender writes the data into the message, and the receiver builds a new copy from it. This is called a structured clone. Most data can be copied, including a `File` or a `Blob`. Functions and DOM elements cannot: they throw a `DataCloneError`.
+
+    A big `ArrayBuffer`, such as the bytes of a file, can be transferred instead. Transfer moves the memory to the worker without a copy. After that, the page cannot use the buffer any more: its `byteLength` is 0.
+
+    ### Worker or small pieces
+
+    Both keep typing fast. Small pieces are tasks on the main thread, so they can change the DOM. But you must split the work yourself, and the main thread is still busy the whole time. A worker needs no splitting and leaves the main thread free. But it cannot touch the page, and the result must travel back in a message. The row objects in this example are copied.
+
+    For small work, a worker can make things slower: web.dev notes that the extra messages have a cost. Choose a worker for work that is heavy, can run on its own data, and returns a small result. Examples: parsing, image processing, search indexes, compression. To draw on a canvas from a worker, use `OffscreenCanvas`. It works in all core browsers.
+
+    ### A web worker is not a service worker
+
+    A service worker is also a worker, but it has another job. It sits between the page and the network, like a proxy. It can answer requests from a cache, for example so the site works offline.
+
+    A service worker also runs off the main thread, but it lives differently. The browser starts it for events, such as a request, and may stop it when it has no event to handle. So it is a poor home for work that one page needs to keep, such as a parsed file the user is searching. A dedicated web worker belongs to the page that created it. The page decides when to stop it, with `terminate()`. Chapter 5 covers the HTTP cache, which works without a service worker.
+
+    ### A simplified model
+
+    The times in this scene are not measured. Parsing takes the same time on either thread. The 450 ms for reading all 500,000 rows on the main thread stands for a general rule: a big result costs time on the main thread when it arrives. How much depends on the data and the device. Starting a worker also costs time and memory, so the HTML Standard expects workers to be long-lived. Create one and reuse it. This model leaves the start-up out.
+
+    The scene measures the wait before each key handler starts. The user sees the letter only after the handler ends and the browser paints the next frame, as in chapter 2.
+
+    Test yourself with [question 3](#qz-3): it gives you a real case to apply this to.
+
+    Sources, checked 25 November 2026: [MDN, Using web workers](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Using_web_workers), [MDN, Transferable objects](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Transferable_objects), [MDN, The structured clone algorithm](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Structured_clone_algorithm), [web.dev, Use web workers to run JavaScript off the browser's main thread](https://web.dev/articles/off-main-thread), [MDN, OffscreenCanvas](https://developer.mozilla.org/en-US/docs/Web/API/OffscreenCanvas), [MDN, Service Worker API](https://developer.mozilla.org/en-US/docs/Web/API/Service_Worker_API), [Service Workers spec, lifetime](https://w3c.github.io/ServiceWorker/#service-worker-lifetime), [HTML Standard, Workers](https://html.spec.whatwg.org/multipage/workers.html#scope), [MDN, Worker.terminate()](https://developer.mozilla.org/en-US/docs/Web/API/Worker/terminate), [HTML Standard, postMessage steps](https://html.spec.whatwg.org/multipage/web-messaging.html#message-port-post-message-steps).
   </Fragment>
 </Chapter>
 
@@ -219,6 +267,7 @@ import QuizItem from '../components/QuizItem.astro';
   <QuizItem
     n="3"
     art="worker"
+    href="#web-workers"
     question="When would you move work to a web worker?"
     scenario="The user drops a 40 MB CSV file onto the page. The page parses it, and typing in the search box lags for 2 seconds. Which change helps most?"
     options={[

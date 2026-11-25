@@ -32,7 +32,7 @@ The numbers show the study order.
 |---|---|---|
 | 1 | Frontend System Design | Not started |
 | 2 | AI-Assisted Engineering | Not started |
-| 3 | Web Platform Foundations | Not started |
+| 3 | Web Platform Foundations | In progress |
 | 4 | Rendering and App Architecture | Not started |
 | 5 | State and Real-Time Data | Not started |
 | 6 | Web Performance | Not started |

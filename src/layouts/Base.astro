@@ -20,6 +20,7 @@ const pageTitle = title === 'Engineering Atlas' ? title : `${title} · Engineeri
     <title>{pageTitle}</title>
     {description && <meta name="description" content={description} />}
     <script is:inline>
+      document.documentElement.dataset.js = '';
       try {
         const saved = localStorage.getItem('theme');
         if (saved === 'light' || saved === 'dark') document.documentElement.dataset.theme = saved;

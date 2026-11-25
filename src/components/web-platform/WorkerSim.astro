@@ -1,0 +1,395 @@
+---
+// Web worker scene: the user drops a 40 MB CSV file and types in a search box
+// while the page parses it. The visitor picks where the parsing runs (one block on
+// the main thread, small pieces, or a web worker) and what the worker sends back.
+// Without JavaScript the finished default run shows, with its steps as text.
+// Model and text: worker-sim.ts.
+import '../../styles/sim.css';
+import { SPAN, WORD, simulate, stepsFor, verdictFor } from './worker-sim';
+
+const sim = simulate('block', 'screen');
+const steps = stepsFor(sim);
+const [vBig, vUnit, vText, vTone] = verdictFor(sim);
+// Wait bars stop where the next key press starts, so overlapping waits never stack.
+const waitEnd = (i: number) => Math.min(sim.keys[i].start, sim.keys[i + 1]?.at ?? Infinity);
+const pos = (start: number, end: number) => `left: ${(start / SPAN) * 100}%; width: ${(Math.max(end - start, 0) / SPAN) * 100}%`;
+---
+
+<div class="sx wk" data-wk>
+  <div class="sx-controls" data-js-only hidden>
+    <fieldset class="sx-ctl">
+      <legend class="sx-label">Where does the parsing run?</legend>
+      <div class="sx-choices">
+        <label class="sx-choice">
+          <input type="radio" name="wk-mode" value="block" checked data-mode />
+          <span class="sx-choice-main">Main thread</span>
+          <span class="sx-choice-sub">one task for the whole file</span>
+        </label>
+        <label class="sx-choice">
+          <input type="radio" name="wk-mode" value="pieces" data-mode />
+          <span class="sx-choice-main">Small pieces</span>
+          <span class="sx-choice-sub">40 ms tasks on the main thread</span>
+        </label>
+        <label class="sx-choice">
+          <input type="radio" name="wk-mode" value="worker" data-mode />
+          <span class="sx-choice-main">Web worker</span>
+          <span class="sx-choice-sub">a separate background thread</span>
+        </label>
+      </div>
+    </fieldset>
+
+    <fieldset class="sx-ctl wk-back" disabled data-back-set aria-describedby="wk-back-hint">
+      <legend class="sx-label">What does the worker send back?</legend>
+      <div class="sx-choices">
+        <label class="sx-choice">
+          <input type="radio" name="wk-back" value="all" data-back />
+          <span class="sx-choice-main">All rows</span>
+          <span class="sx-choice-sub">500,000 rows, copied</span>
+        </label>
+        <label class="sx-choice">
+          <input type="radio" name="wk-back" value="screen" checked data-back />
+          <span class="sx-choice-main">Rows on screen</span>
+          <span class="sx-choice-sub">the 50 rows the table shows</span>
+        </label>
+      </div>
+      <p id="wk-back-hint" class="sx-hint" data-back-hint>Choose “Web worker” first. The main thread sends nothing.</p>
+    </fieldset>
+  </div>
+
+  <div class="sx-stage">
+    <div class="sx-side">
+      <div class="sx-screen" data-screen>
+        <p class="sx-screen-name">A CSV viewer</p>
+        <p class="wk-box"><span data-typed>{WORD.slice(0, sim.keys.length)}</span><span class="wk-caret" aria-hidden="true"></span></p>
+        <p class="wk-status" data-status>500,000 rows. The table shows the first 50.</p>
+        <ul class="wk-rows" data-rows aria-hidden="true">
+          <li></li><li></li><li></li>
+        </ul>
+      </div>
+      <div class="sx-bar" data-js-only hidden>
+        <button class="sx-btn" type="button" data-run>
+          <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M5 3 17 10 5 17Z" fill="currentColor"></path></svg>
+          Play the run
+        </button>
+        <p class="sx-note">Illustrative timing, 2 times slower than real time.</p>
+      </div>
+    </div>
+
+    <figure class="sx-tl" data-tl>
+      <div class="sx-lane">
+        <p class="sx-lane-name">You type “{WORD}”</p>
+        <div class="sx-track wk-tall" data-track="keys">
+          {sim.keys.map((k, i) => (
+            <>
+              <span class="sx-block is-wait" style={pos(k.at, waitEnd(i))}></span>
+              <span class="sx-dot" style={`left: ${(k.at / SPAN) * 100}%`}></span>
+            </>
+          ))}
+        </div>
+      </div>
+      <div class="sx-lane">
+        <p class="sx-lane-name">Main thread: your code, the page and every key press</p>
+        <div class="sx-track wk-tall" data-track="main">
+          {sim.blocks.map((b) => (
+            <span class={`sx-block ${b.kind === 'key' ? 'is-good wk-key' : b.end - b.start > 50 ? 'is-bad' : ''}`} style={pos(b.start, b.end)}></span>
+          ))}
+        </div>
+      </div>
+      <div class="sx-lane">
+        <p class="sx-lane-name">Worker thread: no access to the page</p>
+        <div class="sx-track wk-tall" data-track="worker">
+          <span class="sx-tag wk-idle" style="left: 0">not used</span>
+        </div>
+      </div>
+      <div class="sx-axis" aria-hidden="true">
+        <span style="left: 0">0</span><span style="left: 25%">600</span><span style="left: 50%">1200</span>
+        <span style="left: 75%">1800</span><span style="left: 100%">2400 ms</span>
+      </div>
+      <span class="sx-playhead" data-playhead hidden></span>
+      <ul class="sx-legend" aria-hidden="true">
+        <li><span class="sx-key is-bad"></span>long task</li>
+        <li><span class="sx-key"></span>short task</li>
+        <li><span class="sx-key is-ink"></span>work in the worker</li>
+        <li><span class="sx-key is-wait"></span>key press waits</li>
+        <li><span class="sx-key is-good"></span>key press runs</li>
+      </ul>
+      <figcaption class="visually-hidden">Timeline of your typing, the main thread and the worker thread while a CSV file is parsed. The numbered steps below describe it.</figcaption>
+    </figure>
+  </div>
+
+  <div class="sx-verdict is-on" aria-live="polite" data-verdict data-tone={vTone}>
+    <p class="sx-big">{vBig}</p>
+    <p class="sx-unit">{vUnit}</p>
+    <p class="sx-text">{vText}</p>
+  </div>
+  <ol class="sx-steps" data-steps>
+    {steps.map((s, i) => <li><span class="sx-step-n">{i + 1}</span>{s.text}</li>)}
+  </ol>
+</div>
+
+<script>
+  import { el, fitLabel, keepInside, onResize, place, play, steps as makeSteps, verdict as makeVerdict } from '../../scripts/sim';
+  import { PARSE, RENDER, SPAN, WORD, ms, simulate, stepsFor, verdictFor, type Back, type Mode, type Sim } from './worker-sim';
+
+  const SLOW = 2;
+
+  for (const root of document.querySelectorAll<HTMLElement>('[data-wk]')) {
+    const $ = <T extends Element = HTMLElement>(s: string) => root.querySelector<T>(s)!;
+    const modeInputs = [...root.querySelectorAll<HTMLInputElement>('[data-mode]')];
+    const backInputs = [...root.querySelectorAll<HTMLInputElement>('[data-back]')];
+    const backSet = $<HTMLFieldSetElement>('[data-back-set]');
+    const backHint = $('[data-back-hint]');
+    const tracks = {
+      keys: $('[data-track="keys"]'),
+      main: $('[data-track="main"]'),
+      worker: $('[data-track="worker"]'),
+    };
+    const playhead = $('[data-playhead]');
+    const typed = $('[data-typed]');
+    const status = $('[data-status]');
+    const rows = $('[data-rows]');
+    const screen = $('[data-screen]');
+    const stepList = makeSteps($('[data-steps]'));
+    const result = makeVerdict($('[data-verdict]'));
+
+    let stop = () => {};
+    let sim: Sim = simulate('block', 'screen');
+    let stepTimes: number[] = [];
+    let covers: HTMLElement[] = [];
+    let last = SPAN;
+
+    const mode = () => (modeInputs.find((i) => i.checked)?.value ?? 'block') as Mode;
+    const back = () => (backInputs.find((i) => i.checked)?.value ?? 'screen') as Back;
+    const pct = (t: number) => `${(t / SPAN) * 100}%`;
+
+    const tag = (track: HTMLElement, t: number, text: string, color: string) => {
+      const node = el('span', 'sx-tag', text);
+      node.style.left = pct(t);
+      node.style.color = color;
+      node.style.bottom = '26px';
+      track.append(node);
+      keepInside(node, track);
+    };
+
+    const syncBack = () => {
+      const on = mode() === 'worker';
+      backSet.disabled = !on;
+      backHint.textContent = on
+        ? 'The parsed rows come back in a message. Row objects are copied by default.'
+        : 'Choose “Web worker” first. The main thread sends nothing.';
+    };
+
+    const draw = () => {
+      sim = simulate(mode(), back());
+      for (const tr of Object.values(tracks)) tr.replaceChildren();
+
+      // Typing: one dot per key press, and a hatched bar while it waits.
+      // Each wait bar stops where the next key press starts, so overlapping waits never stack.
+      sim.keys.forEach((k, i) => {
+        const wait = el('span', 'sx-block is-wait');
+        place(wait, k.at, Math.min(k.start, sim.keys[i + 1]?.at ?? Infinity), SPAN);
+        const dot = el('span', 'sx-dot');
+        dot.style.left = pct(k.at);
+        tracks.keys.append(wait, dot);
+      });
+      const worst = sim.keys.reduce((a, b) => (b.wait > a.wait ? b : a));
+      // A callout, because short waits are too thin to see on a phone.
+      if (worst.wait > 0) tag(tracks.keys, worst.at, `longest wait ${ms(worst.wait)}`, 'var(--warn)');
+      else tag(tracks.keys, sim.keys[0].at, 'every handler starts at once', 'var(--good)');
+
+      // Main thread: every task, with labels where they fit.
+      for (const b of sim.blocks) {
+        const long = b.end - b.start > 50;
+        const cls = b.kind === 'key' ? 'is-good wk-key' : long ? 'is-bad' : '';
+        const node = el('span', `sx-block ${cls}`);
+        place(node, b.start, b.end, SPAN);
+        if (b.kind === 'piece') node.style.boxShadow = 'inset -2px 0 var(--paper)';
+        tracks.main.append(node);
+        const text = b.kind === 'parse' ? [`parse · ${ms(PARSE)}`, 'parse'] : b.kind === 'copy' && long ? ['read returned rows', 'read rows', 'read'] : [];
+        if (text.length) {
+          const lab = el('span', 'sx-block-label');
+          lab.style.left = pct(b.start);
+          tracks.main.append(lab);
+          fitLabel(lab, node, text);
+        }
+      }
+      tag(tracks.main, sim.table - RENDER, 'table', 'var(--ink-2)');
+
+      // Worker thread.
+      if (sim.worker) {
+        const node = el('span', 'sx-block is-ink');
+        place(node, sim.worker.start, sim.worker.end, SPAN);
+        tracks.worker.append(node);
+        const lab = el('span', 'sx-block-label');
+        lab.style.left = pct(sim.worker.start);
+        tracks.worker.append(lab);
+        fitLabel(lab, node, [`parse · ${ms(PARSE)}`, 'parse']);
+        tag(tracks.worker, sim.worker.end, sim.back === 'all' ? '→ all rows' : '→ 50 rows', 'var(--ink-2)');
+      } else {
+        const idle = el('span', 'sx-tag wk-idle', 'not used');
+        idle.style.left = '0';
+        tracks.worker.append(idle);
+      }
+
+      covers = Object.values(tracks).map((tr) => {
+        const c = el('span', 'sx-cover');
+        tr.append(c);
+        return c;
+      });
+
+      const ev = stepsFor(sim);
+      stepTimes = ev.map((e) => e.t);
+      stepList.set(ev.map((e) => e.text));
+    };
+
+    const showScreen = (t: number) => {
+      const handled = sim.keys.filter((k) => k.end <= t).length;
+      typed.textContent = WORD.slice(0, handled);
+      // The status names the task the main thread is running, so it matches the timeline.
+      const task = sim.blocks.find((b) => b.kind !== 'key' && b.kind !== 'send' && b.start <= t && t < b.end);
+      const working = sim.worker && sim.worker.start <= t && t < sim.worker.end;
+      status.textContent = t < 100
+        ? 'Drop a file to start.'
+        : t >= sim.table
+          ? '500,000 rows. The table shows the first 50.'
+          : task?.kind === 'copy'
+            ? 'Reading the returned rows…'
+            : task?.kind === 'render'
+              ? 'Building the table…'
+              : task || (!sim.worker && t < sim.parseEnd)
+                ? 'Parsing orders.csv…'
+                : !sim.worker
+                  ? 'Handling queued input…'
+                  : working
+                    ? 'The worker is parsing orders.csv…'
+                    : 'Waiting for the main thread…';
+      rows.classList.toggle('is-on', t >= sim.table);
+      const stuck = sim.keys.some((k) => k.at <= t && t < k.start && t - k.at > 200);
+      screen.classList.toggle('is-bad', stuck);
+    };
+
+    const frame = (t: number) => {
+      last = t;
+      for (const c of covers) c.style.left = pct(t);
+      playhead.hidden = t >= SPAN;
+      playhead.style.left = pct(t);
+      stepList.reveal(stepTimes, t);
+      showScreen(t);
+    };
+
+    const finish = () => {
+      playhead.hidden = true;
+      const [big, unit, text, tone] = verdictFor(sim);
+      result.show(big, unit, text, tone);
+    };
+
+    const run = () => {
+      stop();
+      result.hide();
+      draw();
+      frame(0);
+      stop = play(SPAN, SLOW, frame, finish);
+    };
+
+    // A new choice shows its finished run at once. Only the button plays it.
+    const show = () => {
+      stop();
+      syncBack();
+      draw();
+      frame(SPAN);
+      finish();
+    };
+
+    $('[data-run]').addEventListener('click', run);
+    [...modeInputs, ...backInputs].forEach((i) => i.addEventListener('change', show));
+
+    // Start from the finished run, as rendered on the server. Nothing plays until asked.
+    for (const n of root.querySelectorAll<HTMLElement>('[data-js-only]')) n.hidden = false;
+    // The browser may restore a different choice on reload, so show its result too.
+    show();
+    onResize(root, () => {
+      draw();
+      frame(last);
+    });
+  }
+</script>
+
+<style is:global>
+  .wk .wk-box {
+    display: flex;
+    align-items: center;
+    min-height: 44px;
+    padding-inline: var(--space-3);
+    border-radius: 22px;
+    background: color-mix(in srgb, var(--ink) 7%, var(--paper));
+    font-weight: 700;
+  }
+
+  .wk .wk-caret {
+    width: 2px;
+    height: 1.2em;
+    margin-left: 2px;
+    background: var(--ink);
+  }
+
+  .wk .wk-status {
+    color: var(--ink-2);
+  }
+
+  /* Placeholder rows: shown once the table is built. */
+  .wk .wk-rows {
+    display: grid;
+    gap: var(--space-2);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    opacity: 0.15;
+    transition: opacity 0.3s ease;
+  }
+
+  .wk .wk-rows.is-on {
+    opacity: 1;
+  }
+
+  .wk .wk-rows li {
+    height: 10px;
+    background: var(--ink-2);
+  }
+
+  .wk .wk-rows li:nth-child(2) { width: 85%; }
+  .wk .wk-rows li:nth-child(3) { width: 70%; }
+
+  /* Room above the bars for labels. */
+  .wk .wk-tall {
+    height: 52px;
+  }
+
+  .wk .sx-key.is-ink {
+    background: var(--ink);
+  }
+
+  /* A key handler is 10 ms: keep it visible on narrow timelines. */
+  .wk .wk-key {
+    min-width: 3px;
+  }
+
+  .wk .wk-idle {
+    color: var(--ink-3);
+    font-weight: 400;
+  }
+
+  .wk .wk-back:disabled .sx-choices {
+    opacity: 0.45;
+  }
+
+  .wk .wk-back:disabled .sx-choice,
+  .wk .wk-back:disabled .sx-choice input {
+    cursor: not-allowed;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .wk .wk-rows {
+      transition: none;
+    }
+  }
+</style>
