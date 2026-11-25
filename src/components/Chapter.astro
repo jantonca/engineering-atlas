@@ -113,6 +113,13 @@ const { id, n, topic, question, title } = Astro.props;
     margin-top: var(--space-3);
   }
 
+  .ch-after :global(ul) {
+    display: grid;
+    gap: var(--space-1);
+    margin-top: var(--space-2);
+    padding-left: 1.25rem;
+  }
+
   .ch-after :global(h3) {
     margin-top: var(--space-5);
     color: var(--ink);

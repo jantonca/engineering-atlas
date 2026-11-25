@@ -1,0 +1,488 @@
+---
+// Memory leak scene: a support inbox. Each ticket view has a timer that updates
+// "updated 2 min ago". The visitor picks what happens when a ticket closes and sees
+// what the garbage collector can still reach from the roots.
+// Without JavaScript the finished default run shows, with its steps as text.
+// Model and text: memory-sim.ts.
+import '../../styles/sim.css';
+import { ROOT_NAMES, ROOT_SUBS, VIEWS, counts, simulate, stateText, stepsFor, verdictFor, type Root } from './memory-sim';
+
+const MODE = 'none';
+const sim = simulate(MODE);
+const snap = sim[sim.length - 1];
+const steps = stepsFor(MODE);
+const [vBig, vUnit, vText, vTone] = verdictFor(MODE);
+const { inMemory, detached } = counts(snap);
+const ROOTS: Root[] = ['doc', 'timers', 'cache'];
+const TICKETS = ['Login fails', 'Invoice missing', 'Printer offline', 'Refund request'];
+// Edge end points, as a share of the graph's height. Rows have equal height.
+const ROOT_Y: Record<Root, number> = { doc: 12.5, timers: 50, cache: 87.5 };
+// Each root's arrows end a little apart on the view, so two arrows never share a tip.
+const END: Record<Root, number> = { doc: -5, timers: 0, cache: 5 };
+const viewY = (i: number, r: Root) => 12.5 + i * 25 + END[r];
+const views = [...Array(VIEWS).keys()];
+const refTone = (r: Root, i: number) => (snap.views[i] === 'held' ? 'is-bad' : r === 'doc' ? 'is-doc' : '');
+---
+
+<div class="sx mem" data-mem>
+  <div class="sx-controls mem-controls" data-js-only hidden>
+    <fieldset class="sx-ctl">
+      <legend class="sx-label">What does the code do when a ticket closes?</legend>
+      <div class="sx-choices">
+        <label class="sx-choice">
+          <input type="radio" name="mem-mode" value="none" checked data-mode />
+          <span class="sx-choice-main">Remove the view</span>
+          <span class="sx-choice-sub">the timer keeps running</span>
+        </label>
+        <label class="sx-choice">
+          <input type="radio" name="mem-mode" value="clear" data-mode />
+          <span class="sx-choice-main">Also stop the timer</span>
+          <span class="sx-choice-sub">with clearInterval()</span>
+        </label>
+        <label class="sx-choice">
+          <input type="radio" name="mem-mode" value="cache" data-mode />
+          <span class="sx-choice-main">Stop the timer, cache the view</span>
+          <span class="sx-choice-sub">to reopen it fast</span>
+        </label>
+      </div>
+    </fieldset>
+  </div>
+
+  <div class="sx-stage">
+    <div class="sx-side">
+      <div class="sx-screen" data-screen>
+        <p class="sx-screen-name">A support inbox</p>
+        <ul class="mem-inbox">
+          {TICKETS.map((name, i) => (
+            <li class={snap.views[i] === 'open' ? 'is-open' : ''} data-ticket={i}>
+              <span class="mem-ticket">{name}</span>
+              <span class="mem-ago">{snap.views[i] === 'open' ? 'updated 2 min ago' : ''}</span>
+            </li>
+          ))}
+        </ul>
+        <p class="mem-readout" data-readout>
+          In memory: <strong data-in-memory>{inMemory}</strong> ticket views,{' '}
+          <strong data-detached>{detached}</strong> detached
+        </p>
+      </div>
+      <div class="sx-bar" data-js-only hidden>
+        <button class="sx-btn" type="button" data-run>
+          <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M5 3 17 10 5 17Z" fill="currentColor"></path></svg>
+          Play the run
+        </button>
+        <p class="sx-note">Not real time. Here the collector runs after each close.</p>
+      </div>
+    </div>
+
+    <figure class="mem-fig" data-fig>
+      <div class="mem-heads" aria-hidden="true">
+        <p>Roots: start here</p>
+        <p>Ticket views</p>
+      </div>
+      <div class="mem-graph" data-graph>
+        {ROOTS.map((r) => (
+          <div class={`mem-root mem-root-${r}`} data-root={r}>
+            <p class="mem-name"><code>{ROOT_NAMES[r]}</code></p>
+            <p class="mem-sub" data-root-sub>{r === 'cache' ? 'not used' : ROOT_SUBS[r]}</p>
+            {r !== 'doc' && (
+              <p class="mem-chips" data-chips>
+                {snap.refs[r].map((i) => <span>{r === 'timers' ? `timer ${i + 1}` : `view ${i + 1}`}</span>)}
+              </p>
+            )}
+          </div>
+        ))}
+
+        <svg class="mem-edges" aria-hidden="true" data-edges>
+          <defs>
+            <marker id="mem-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path class="mem-head" d="M0 0 10 5 0 10Z"></path>
+            </marker>
+            <marker id="mem-arrow-bad" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path class="mem-head is-bad" d="M0 0 10 5 0 10Z"></path>
+            </marker>
+          </defs>
+          {ROOTS.map((r) =>
+            views.map((i) => (
+              <line
+                class={`mem-edge ${refTone(r, i)}`}
+                data-edge={`${r}-${i}`}
+                x1="0"
+                y1={`${ROOT_Y[r]}%`}
+                x2="100%"
+                y2={`${viewY(i, r)}%`}
+                marker-end={snap.views[i] === 'held' ? 'url(#mem-arrow-bad)' : 'url(#mem-arrow)'}
+                visibility={snap.refs[r].includes(i) ? 'visible' : 'hidden'}
+              />
+            )),
+          )}
+        </svg>
+
+        {views.map((i) => (
+          <div class={`mem-view is-${snap.views[i]}`} data-view={i} style={`grid-row: ${i + 1}`}>
+            <p class="mem-name">View {i + 1}</p>
+            <p class="mem-state" data-state>{stateText(snap, i)}</p>
+          </div>
+        ))}
+      </div>
+      <p class="mem-phase" data-phase aria-hidden="true"></p>
+      <figcaption class="visually-hidden">
+        A graph of what the garbage collector can reach. Three roots on the left, four ticket views on the right, with an arrow for each reference. The numbered steps below describe it.
+      </figcaption>
+    </figure>
+  </div>
+
+  <div class="sx-verdict is-on" aria-live="polite" data-verdict data-tone={vTone}>
+    <p class="sx-big">{vBig}</p>
+    <p class="sx-unit">{vUnit}</p>
+    <p class="sx-text">{vText}</p>
+  </div>
+  <ol class="sx-steps" data-steps>
+    {steps.map((s, i) => <li><span class="sx-step-n">{i + 1}</span>{s.text}</li>)}
+  </ol>
+</div>
+
+<script>
+  import { play, steps as makeSteps, verdict as makeVerdict } from '../../scripts/sim';
+  import { ROOT_SUBS, SPAN, counts, simulate, snapshotAt, stateText, stepsFor, verdictFor, type Mode, type Root, type Sim, type Snapshot } from './memory-sim';
+
+  const ROOTS: Root[] = ['doc', 'timers', 'cache'];
+
+  for (const root of document.querySelectorAll<HTMLElement>('[data-mem]')) {
+    const $ = <T extends Element = HTMLElement>(s: string) => root.querySelector<T>(s)!;
+    const modeInputs = [...root.querySelectorAll<HTMLInputElement>('[data-mode]')];
+    const graph = $('[data-graph]');
+    const phase = $('[data-phase]');
+    const stepList = makeSteps($('[data-steps]'));
+    const result = makeVerdict($('[data-verdict]'));
+
+    let stop = () => {};
+    let sim: Sim = simulate('none');
+    let stepTimes: number[] = [];
+    let shown: Snapshot | null = null;
+
+    const mode = () => (modeInputs.find((i) => i.checked)?.value ?? 'none') as Mode;
+
+    const render = (snap: Snapshot, m: Mode) => {
+      if (snap === shown) return;
+      shown = snap;
+      for (const r of ROOTS) {
+        const box = $(`[data-root="${r}"]`);
+        const unused = r === 'cache' && m !== 'cache';
+        box.classList.toggle('is-unused', unused);
+        box.querySelector('[data-root-sub]')!.textContent = unused ? 'not used' : ROOT_SUBS[r];
+        const chips = box.querySelector('[data-chips]');
+        if (chips) {
+          chips.replaceChildren(
+            ...snap.refs[r].map((i) => {
+              const c = document.createElement('span');
+              c.textContent = r === 'timers' ? `timer ${i + 1}` : `view ${i + 1}`;
+              return c;
+            }),
+          );
+        }
+        snap.views.forEach((state, i) => {
+          const edge = $(`[data-edge="${r}-${i}"]`);
+          const on = snap.refs[r].includes(i);
+          const held = state === 'held';
+          edge.setAttribute('visibility', on ? 'visible' : 'hidden');
+          edge.setAttribute('class', `mem-edge ${held ? 'is-bad' : r === 'doc' ? 'is-doc' : ''}`);
+          edge.setAttribute('marker-end', held ? 'url(#mem-arrow-bad)' : 'url(#mem-arrow)');
+        });
+      }
+      snap.views.forEach((state, i) => {
+        const v = $(`[data-view="${i}"]`);
+        v.className = `mem-view is-${state}`;
+        v.querySelector('[data-state]')!.textContent = stateText(snap, i);
+        const li = $(`[data-ticket="${i}"]`);
+        li.classList.toggle('is-open', state === 'open');
+        li.querySelector('.mem-ago')!.textContent = state === 'open' ? 'updated 2 min ago' : '';
+      });
+      const { inMemory, detached } = counts(snap);
+      $('[data-in-memory]').textContent = String(inMemory);
+      $('[data-detached]').textContent = String(detached);
+      // The collection step: show the marking from the roots.
+      const gc = snap.kind === 'gc';
+      graph.classList.toggle('is-gc', gc);
+      phase.textContent = gc ? 'The collector follows every arrow from the roots. What it cannot reach is freed.' : '';
+    };
+
+    const frame = (t: number) => {
+      render(snapshotAt(sim, t), mode());
+      stepList.reveal(stepTimes, t);
+    };
+
+    const draw = () => {
+      sim = simulate(mode());
+      shown = null;
+      const ev = stepsFor(mode());
+      stepTimes = ev.map((e) => e.t);
+      stepList.set(ev.map((e) => e.text));
+    };
+
+    const finish = () => {
+      graph.classList.remove('is-gc');
+      phase.textContent = '';
+      const [big, unit, text, tone] = verdictFor(mode());
+      result.show(big, unit, text, tone);
+    };
+
+    const run = () => {
+      stop();
+      result.hide();
+      draw();
+      frame(0);
+      stop = play(SPAN, 1, frame, finish);
+    };
+
+    // A new choice shows its finished run at once. Only the button plays it.
+    const show = () => {
+      stop();
+      draw();
+      frame(SPAN);
+      finish();
+    };
+
+    $('[data-run]').addEventListener('click', run);
+    modeInputs.forEach((i) => i.addEventListener('change', show));
+
+    // Start from the finished run, as rendered on the server. Nothing plays until asked.
+    for (const n of root.querySelectorAll<HTMLElement>('[data-js-only]')) n.hidden = false;
+    // The browser may restore a different choice on reload, so show its result too.
+    show();
+  }
+</script>
+
+<style is:global>
+  .mem .mem-controls {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* ---------- Mock screen ---------- */
+  .mem .mem-inbox {
+    display: grid;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .mem .mem-inbox li {
+    display: grid;
+    padding: var(--space-2) var(--space-2);
+    border-radius: 8px;
+    color: var(--ink-2);
+  }
+
+  .mem .mem-inbox li.is-open {
+    background: color-mix(in srgb, var(--ink) 8%, var(--paper));
+    color: var(--ink);
+    font-weight: 700;
+  }
+
+  .mem .mem-ago {
+    color: var(--ink-2);
+    font-weight: 400;
+  }
+
+  .mem .mem-ago:empty {
+    display: none;
+  }
+
+  .mem .mem-readout {
+    padding-top: var(--space-2);
+    box-shadow: 0 -1px 0 var(--faint);
+    color: var(--ink-2);
+  }
+
+  .mem .mem-readout strong {
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ---------- Graph ---------- */
+  .mem .mem-fig {
+    --edge-w: clamp(3rem, 9vw, 9rem);
+    display: grid;
+    gap: var(--space-3);
+    min-width: 0;
+  }
+
+  .mem .mem-heads,
+  .mem .mem-graph {
+    display: grid;
+    grid-template-columns: minmax(0, 0.85fr) var(--edge-w) minmax(0, 1.15fr);
+  }
+
+  .mem .mem-heads p {
+    color: var(--ink-2);
+    font-weight: 650;
+  }
+
+  .mem .mem-heads p:last-child {
+    grid-column: 3;
+  }
+
+  /* Four rows of equal height, no row gap: edge ends are at 12.5%, 37.5%, 62.5%, 87.5%. */
+  .mem .mem-graph {
+    grid-template-rows: repeat(4, 1fr);
+  }
+
+  .mem .mem-root,
+  .mem .mem-view {
+    display: grid;
+    gap: 2px;
+    align-content: center;
+    min-width: 0;
+    margin-block: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    border-radius: 10px;
+    box-shadow: inset 0 0 0 2px var(--ink);
+    transition: box-shadow 0.3s ease, opacity 0.3s ease;
+  }
+
+  .mem .mem-root {
+    grid-column: 1;
+    align-self: center;
+    background: color-mix(in srgb, var(--ink) 6%, var(--paper));
+  }
+
+  .mem .mem-root-doc { grid-row: 1; }
+  .mem .mem-root-timers { grid-row: 2 / 4; }
+  .mem .mem-root-cache { grid-row: 4; }
+
+  .mem .mem-root.is-unused {
+    background: none;
+    box-shadow: inset 0 0 0 2px var(--faint);
+    color: var(--ink-3);
+  }
+
+  .mem .mem-name {
+    font-weight: 750;
+    overflow-wrap: anywhere;
+  }
+
+  .mem .mem-name code {
+    font-size: 1em;
+  }
+
+  .mem .mem-sub,
+  .mem .mem-state {
+    color: var(--ink-2);
+  }
+
+  .mem .mem-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 4px;
+  }
+
+  .mem .mem-chips:empty {
+    display: none;
+  }
+
+  .mem .mem-chips span {
+    padding: 0 6px;
+    border-radius: 6px;
+    background: var(--paper);
+    box-shadow: inset 0 0 0 1px var(--ink-3);
+    white-space: nowrap;
+  }
+
+  .mem .mem-view {
+    grid-column: 3;
+    align-self: stretch;
+  }
+
+  .mem .mem-view.is-open .mem-state {
+    color: var(--good);
+    font-weight: 700;
+  }
+
+  /* Detached but reachable: the leak. Thick border and text, not colour alone. */
+  .mem .mem-view.is-held {
+    box-shadow: inset 0 0 0 4px var(--bad);
+    background: repeating-linear-gradient(-45deg, color-mix(in srgb, var(--bad) 10%, transparent) 0 6px, transparent 6px 12px);
+  }
+
+  .mem .mem-view.is-held .mem-state {
+    color: var(--bad);
+    font-weight: 700;
+  }
+
+  .mem .mem-view.is-new,
+  .mem .mem-view.is-garbage,
+  .mem .mem-view.is-freed {
+    box-shadow: none;
+    outline: 2px dashed var(--ink-3);
+    outline-offset: -2px;
+    color: var(--ink-3);
+  }
+
+  .mem .mem-view.is-new .mem-state,
+  .mem .mem-view.is-freed .mem-state {
+    color: var(--ink-3);
+  }
+
+  .mem .mem-view.is-new,
+  .mem .mem-view.is-freed {
+    outline-color: var(--faint);
+  }
+
+  /* Edges: one SVG in the middle column, spanning all four rows. */
+  .mem .mem-edges {
+    grid-column: 2;
+    grid-row: 1 / -1;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+
+  .mem .mem-edge {
+    stroke: var(--ink-2);
+    stroke-width: 2;
+  }
+
+  .mem .mem-edge.is-doc {
+    stroke: var(--ink);
+  }
+
+  .mem .mem-edge.is-bad {
+    stroke: var(--bad);
+    stroke-width: 3;
+  }
+
+  .mem .mem-head {
+    fill: var(--ink-2);
+  }
+
+  .mem .mem-head.is-bad {
+    fill: var(--bad);
+  }
+
+  /* The collection step: marching dashes show the collector following references. */
+  .mem .mem-graph.is-gc .mem-edge {
+    stroke-dasharray: 6 5;
+    animation: mem-mark 0.6s linear infinite;
+  }
+
+  @keyframes mem-mark {
+    to { stroke-dashoffset: -11; }
+  }
+
+  .mem .mem-phase {
+    min-height: calc(2 * var(--diagram-leading) * 1em);
+    color: var(--ink);
+    font-weight: 650;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .mem .mem-root,
+    .mem .mem-view {
+      transition: none;
+    }
+
+    .mem .mem-graph.is-gc .mem-edge {
+      animation: none;
+    }
+  }
+</style>

@@ -11,6 +11,7 @@ nav:
   - { id: web-workers, n: '3', label: Web workers }
   - { id: out-of-order, n: '4', label: Out of order }
   - { id: http-caching, n: '5', label: HTTP caching }
+  - { id: memory-leaks, n: '6', label: Memory leaks }
   - { id: quiz, label: Test yourself }
 ---
 
@@ -21,6 +22,7 @@ import EventLoopSim from '../components/web-platform/EventLoopSim.astro';
 import WorkerSim from '../components/web-platform/WorkerSim.astro';
 import RaceSim from '../components/web-platform/RaceSim.astro';
 import CachingSimulator from '../components/web-platform/CachingSimulator.astro';
+import MemorySim from '../components/web-platform/MemorySim.astro';
 import Quiz from '../components/Quiz.astro';
 import QuizItem from '../components/QuizItem.astro';
 
@@ -194,6 +196,52 @@ import QuizItem from '../components/QuizItem.astro';
   </Fragment>
 </Chapter>
 
+<Chapter
+  id="memory-leaks"
+  n="6"
+  topic="Memory leaks"
+  question="What causes memory leaks in a page that stays open for hours?"
+  title="Reachable means kept."
+>
+  <Fragment slot="answer">
+    JavaScript frees memory by itself, but only memory that nothing can reach. The garbage collector starts at a few roots, such as the page and its active timers, and follows every reference. If a timer or a listener still points to an old view, the view stays. One small leak per click adds up over hours.
+  </Fragment>
+
+  <MemorySim />
+
+  <Fragment slot="after">
+    ### What keeps memory alive
+
+    A root is something the browser keeps as long as the page is open. The global `window` object is one. Everything it can reach stays in memory, through any chain of references. A function also keeps the variables it uses, even after the code that created it has finished. This is called a closure. So a timer's function that uses a view keeps that view alive.
+
+    The common chains in a long-lived page:
+
+    - An event listener on `window` or `document` that is never removed.
+    - A timer from `setInterval()` that is never stopped.
+    - A subscription that is never closed, for example to a WebSocket or a data store.
+    - A cache or `Map` that only grows.
+    - A removed element that a variable still holds.
+
+    ### Clean up when a view closes
+
+    Every start needs a stop. `clearInterval()` stops a timer. `removeEventListener()` removes a listener. You can also pass an `AbortSignal` in the `signal` option of `addEventListener()`. One call to `abort()` then removes every listener that uses that signal. Most frameworks give each component a cleanup step that runs when it leaves the page. Put the stops there.
+
+    A cache needs a limit, for example the last 10 items. A `WeakMap` can also help. A DOM element can be a `WeakMap` key, and using it as a key does not keep it alive. When nothing else reaches the element, the collector can free it and its value. A string ticket ID cannot be a key, so a cache keyed by ticket ID needs a limit instead.
+
+    ### Find the leak
+
+    Use the Memory panel in Chrome DevTools. Take a heap snapshot to see which objects are still reachable after collection. Repeat the suspect action several times, such as opening and closing a ticket, then take a second snapshot. The Comparison view shows what was added between the two. Type `Detached` in the Class filter to find detached elements. Select one, and the Retainers section shows the chain that still points to it. The panel also has a Detached elements profile that lists them directly.
+
+    ### A simplified model
+
+    In this scene the collector runs after each close. Real engines decide when to collect, and code cannot start a collection. So the memory graph of a healthy page goes up and down. A leak shows as a floor that keeps rising after each collection. A detached view also keeps every element inside it, so one leaked panel can hold thousands of nodes.
+
+    Test yourself with [question 6](#qz-6): it gives you a real case to apply this to.
+
+    Sources, checked 25 November 2026: [MDN, Memory management](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Memory_management), [MDN, Closures](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Closures), [MDN, setInterval()](https://developer.mozilla.org/en-US/docs/Web/API/Window/setInterval), [MDN, clearInterval()](https://developer.mozilla.org/en-US/docs/Web/API/Window/clearInterval), [MDN, addEventListener()](https://developer.mozilla.org/en-US/docs/Web/API/EventTarget/addEventListener), [MDN, WeakMap](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/WeakMap), [Chrome for Developers, Fix memory problems](https://developer.chrome.com/docs/devtools/memory-problems), [Chrome for Developers, Record heap snapshots](https://developer.chrome.com/docs/devtools/memory-problems/heap-snapshots).
+  </Fragment>
+</Chapter>
+
 <Quiz id="quiz" storageKey="web-platform-foundations">
   <Fragment slot="title">Eight questions.</Fragment>
   <Fragment slot="intro">
@@ -363,6 +411,7 @@ import QuizItem from '../components/QuizItem.astro';
   <QuizItem
     n="6"
     art="memory"
+    href="#memory-leaks"
     question="What causes memory leaks in a page that stays open for hours?"
     scenario="A dashboard stays open all day. Each time the user opens a panel, the code adds a resize listener on window. The listener's function uses the panel, to resize it. Closing the panel removes it from the page, but not the listener. What happens over the day?"
     options={[
