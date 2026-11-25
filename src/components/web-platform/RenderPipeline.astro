@@ -1,0 +1,548 @@
+---
+// Render pipeline: from HTML to pixels in five steps.
+// The visitor picks what happens (the first load, or a script that changes one box)
+// and watches which steps run and which are skipped.
+// Teaching model, simplified from the pixel pipeline on web.dev (Style, Layout, Paint,
+// Composite) with parsing added in front. Real browsers split these steps further.
+// Times are not measured: each step simply gets the same time in the animation.
+// Without JavaScript the finished first load shows, with its steps as text.
+import '../../styles/sim.css';
+import { RUNS, SCREEN, STAGES, STEP_TEXT, VERDICT } from './render-pipeline';
+
+const stages = STAGES;
+const [vBig, vUnit, vText, vTone] = VERDICT.load;
+---
+
+<div class="sx rp" data-rp>
+  <div class="sx-controls" data-js-only hidden>
+    <fieldset class="sx-ctl">
+      <legend class="sx-label">What happens?</legend>
+      <div class="sx-choices">
+        <label class="sx-choice">
+          <input type="radio" name="rp-change" value="load" checked data-change />
+          <span class="sx-choice-main">First load</span>
+          <span class="sx-choice-sub">the HTML and CSS arrive</span>
+        </label>
+        <label class="sx-choice">
+          <input type="radio" name="rp-change" value="width" data-change />
+          <span class="sx-choice-main">New width</span>
+          <span class="sx-choice-sub">a script makes the box wider</span>
+        </label>
+        <label class="sx-choice">
+          <input type="radio" name="rp-change" value="colour" data-change />
+          <span class="sx-choice-main">New colour</span>
+          <span class="sx-choice-sub">a script changes its background</span>
+        </label>
+        <label class="sx-choice">
+          <input type="radio" name="rp-change" value="transform" data-change />
+          <span class="sx-choice-main">Transform</span>
+          <span class="sx-choice-sub">a script moves it with transform</span>
+        </label>
+      </div>
+    </fieldset>
+  </div>
+
+  <div class="sx-stage">
+    <div class="sx-side">
+      <div class="sx-screen rp-screen" data-screen>
+        <p class="sx-screen-name">A page with one box</p>
+        <div class="rp-page" data-page data-change="load" data-view="live">
+          <span class="rp-heading" aria-hidden="true"></span>
+          <div class="rp-row">
+            <span class="rp-ghost" aria-hidden="true"></span>
+            <span class="rp-box" data-box>Box</span>
+            <span class="rp-text">Text beside the box</span>
+          </div>
+          <span class="rp-line" aria-hidden="true"></span>
+          <span class="rp-line is-short" aria-hidden="true"></span>
+        </div>
+        <p class="rp-status" data-status>{SCREEN.load.after.composite}</p>
+      </div>
+      <div class="sx-bar" data-js-only hidden>
+        <button class="sx-btn" type="button" data-run>
+          <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M5 3 17 10 5 17Z" fill="currentColor"></path></svg>
+          Play the steps
+        </button>
+        <p class="sx-note">Illustrative timing.</p>
+      </div>
+    </div>
+
+    <figure class="rp-fig" data-tl>
+      <ol class="rp-pipe">
+        {
+          stages.map((s, i) => (
+            <li class="rp-st" data-st={s.id} data-s={RUNS.load.includes(s.id) ? 'done' : 'skip'} style="--p: 1">
+              <svg class="rp-icon" viewBox="0 0 64 44" width="64" height="44" aria-hidden="true">
+                {s.id === 'parse' && (
+                  <>
+                    <path class="rp-i-line" d="M32 6 V14 H14 V22 M32 14 H50 V22 M50 26 V31 H40 V35 M50 31 H60 V35" />
+                    <circle class="rp-i-fill" cx="32" cy="6" r="5" />
+                    <circle class="rp-i-fill" cx="14" cy="24" r="5" />
+                    <circle class="rp-i-fill" cx="50" cy="24" r="5" />
+                    <circle class="rp-i-fill" cx="40" cy="38" r="4" />
+                    <circle class="rp-i-fill" cx="60" cy="38" r="4" />
+                  </>
+                )}
+                {s.id === 'style' && (
+                  <>
+                    <rect class="rp-i-fill" x="4" y="6" width="9" height="9" />
+                    <path class="rp-i-line" d="M20 10.5 H58" />
+                    <rect class="rp-i-fill" x="4" y="19" width="9" height="9" />
+                    <path class="rp-i-line" d="M20 23.5 H48" />
+                    <rect class="rp-i-hole" x="4" y="32" width="9" height="9" />
+                    <path class="rp-i-dash" d="M20 36.5 H40" />
+                  </>
+                )}
+                {s.id === 'layout' && (
+                  <>
+                    <path class="rp-i-line" d="M4 6 H30 M4 2 V10 M30 2 V10" />
+                    <rect class="rp-i-hole" x="4" y="16" width="26" height="24" />
+                    <rect class="rp-i-hole" x="36" y="16" width="24" height="10" />
+                    <rect class="rp-i-hole" x="36" y="30" width="18" height="10" />
+                  </>
+                )}
+                {s.id === 'paint' && (
+                  <>
+                    <rect class="rp-i-fill" x="4" y="16" width="26" height="24" />
+                    <rect class="rp-i-fill" x="36" y="16" width="24" height="10" />
+                    <rect class="rp-i-dot" x="36" y="30" width="18" height="10" />
+                  </>
+                )}
+                {s.id === 'composite' && (
+                  <>
+                    <rect class="rp-i-hole" x="4" y="4" width="34" height="22" />
+                    <rect class="rp-i-hole" x="14" y="12" width="34" height="22" />
+                    <rect class="rp-i-fill" x="24" y="20" width="34" height="22" />
+                  </>
+                )}
+              </svg>
+              <p class="rp-st-name"><span class="rp-st-n">{i + 1}</span> {s.name}</p>
+              <p class="rp-st-makes"><span>{s.makes[0]}</span> <span>{s.makes[1]}</span></p>
+              <span class="rp-bar" aria-hidden="true"><span></span></span>
+              <p class="rp-st-state" data-state>{RUNS.load.includes(s.id) ? 'ran' : 'skipped'}</p>
+            </li>
+          ))
+        }
+      </ol>
+      <ul class="sx-legend" aria-hidden="true">
+        <li><span class="sx-key is-ink"></span>runs</li>
+        <li><span class="sx-key rp-key-skip"></span>skipped</li>
+      </ul>
+      <figcaption class="visually-hidden">The five steps from HTML to pixels: parse, style, layout, paint, composite. The numbered list below says which steps run for the chosen change.</figcaption>
+    </figure>
+  </div>
+
+  <div class="sx-verdict is-on" aria-live="polite" data-verdict data-tone={vTone}>
+    <p class="sx-big">{vBig}</p>
+    <p class="sx-unit">{vUnit}</p>
+    <p class="sx-text">{vText}</p>
+  </div>
+  <ol class="sx-steps" data-steps>
+    {stages.map((s, i) => <li><span class="sx-step-n">{i + 1}</span>{STEP_TEXT.load[s.id]}</li>)}
+  </ol>
+</div>
+
+<script>
+  import { onResize, play, steps as makeSteps, verdict as makeVerdict } from '../../scripts/sim';
+  import { RUNS, SCREEN, STAGES as STAGE_INFO, STATE_TEXT, STEP_TEXT, VERDICT, type Change, type Stage } from './render-pipeline';
+
+  const STAGES: Stage[] = STAGE_INFO.map((s) => s.id);
+  const RUN_MS = 900;
+  const SKIP_MS = 450;
+
+  for (const root of document.querySelectorAll<HTMLElement>('[data-rp]')) {
+    const $ = <T extends Element = HTMLElement>(s: string) => root.querySelector<T>(s)!;
+    const inputs = [...root.querySelectorAll<HTMLInputElement>('[data-change]')];
+    const page = $('[data-page]');
+    const status = $('[data-status]');
+    const stepList = makeSteps($('[data-steps]'));
+    const result = makeVerdict($('[data-verdict]'));
+    const nodes = Object.fromEntries(
+      STAGES.map((s) => [s, root.querySelector<HTMLElement>(`[data-st="${s}"]`)!]),
+    ) as Record<Stage, HTMLElement>;
+
+    let stop = () => {};
+    let change: Change = 'load';
+    let plan: { stage: Stage; ran: boolean; start: number; end: number }[] = [];
+    let span = 0;
+    let last = 0;
+
+    const current = () => (inputs.find((i) => i.checked)?.value ?? 'load') as Change;
+
+    const build = () => {
+      change = current();
+      let t = 0;
+      plan = STAGES.map((stage) => {
+        const ran = RUNS[change].includes(stage);
+        const start = t;
+        t += ran ? RUN_MS : SKIP_MS;
+        return { stage, ran, start, end: t };
+      });
+      span = t;
+      stepList.set(plan.map((p) => STEP_TEXT[change][p.stage]));
+      page.dataset.change = change;
+    };
+
+    const frame = (t: number) => {
+      last = t;
+      let view = change === 'load' ? 'blank' : 'old';
+      let text = SCREEN[change].before;
+      for (const p of plan) {
+        const node = nodes[p.stage];
+        const s = t < p.start ? 'wait' : t < p.end ? (p.ran ? 'run' : 'skip') : p.ran ? 'done' : 'skip';
+        node.dataset.s = s;
+        node.style.setProperty('--p', p.ran ? String(Math.min(1, Math.max(0, (t - p.start) / (p.end - p.start)))) : '0');
+        node.querySelector('[data-state]')!.textContent = STATE_TEXT[s];
+        if (t >= p.end && p.ran) {
+          text = SCREEN[change].after[p.stage] ?? text;
+          if (change === 'load' && p.stage === 'layout') view = 'wire';
+          if (change === 'load' && p.stage === 'paint') view = 'painted';
+          if (p.stage === 'composite') view = 'live';
+        }
+      }
+      page.dataset.view = view;
+      status.textContent = text;
+      stepList.reveal(plan.map((p) => p.start), t);
+    };
+
+    const finish = () => {
+      const [big, unit, text, tone] = VERDICT[change];
+      result.show(big, unit, text, tone);
+    };
+
+    const run = () => {
+      stop();
+      result.hide();
+      build();
+      frame(0);
+      stop = play(span, 1, frame, finish);
+    };
+
+    $('[data-run]').addEventListener('click', run);
+    inputs.forEach((i) => i.addEventListener('change', run));
+
+    // Start from the finished first load, as rendered on the server. Nothing plays until asked.
+    for (const n of root.querySelectorAll<HTMLElement>('[data-js-only]')) n.hidden = false;
+    // The browser may restore a different choice on reload, so show its result too.
+    build();
+    frame(span);
+    finish();
+    onResize(root, () => frame(last));
+  }
+</script>
+
+<style is:global>
+  .rp .sx-controls {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* ---------- The mock page ---------- */
+  .rp .rp-screen {
+    min-height: 0;
+  }
+
+  .rp .rp-page {
+    display: grid;
+    gap: var(--space-2);
+    transition: opacity 0.3s ease;
+  }
+
+  .rp .rp-heading,
+  .rp .rp-line {
+    display: block;
+    height: 10px;
+    background: var(--ink-2);
+  }
+
+  .rp .rp-heading {
+    width: 55%;
+    height: 14px;
+    margin-bottom: var(--space-1);
+    background: var(--ink);
+  }
+
+  .rp .rp-line.is-short {
+    width: 70%;
+  }
+
+  .rp .rp-row {
+    position: relative;
+    display: flex;
+    gap: var(--space-2);
+    align-items: stretch;
+    min-height: 5.5rem;
+  }
+
+  .rp .rp-box {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 40%;
+    border: 3px solid var(--ink);
+    background: var(--faint);
+    color: var(--ink);
+    font-weight: 800;
+  }
+
+  .rp .rp-text {
+    align-self: center;
+    min-width: 0;
+    color: var(--ink);
+    overflow-wrap: anywhere;
+  }
+
+  /* Where the layout keeps the box. Shown only when a transform moved it. */
+  .rp .rp-ghost {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 40%;
+    border: 2px dashed var(--ink-3);
+    opacity: 0;
+  }
+
+  /* The new state shows once the frame reaches the screen. */
+  .rp [data-change='width'][data-view='live'] .rp-box {
+    flex-basis: 64%;
+  }
+
+  .rp [data-change='colour'][data-view='live'] .rp-box {
+    background: var(--ink);
+    color: var(--paper);
+  }
+
+  .rp [data-change='transform'] .rp-box {
+    transition: transform 0.5s cubic-bezier(.3,0,.2,1);
+  }
+
+  .rp [data-change='transform'][data-view='live'] .rp-box {
+    transform: translate(45%, 18%);
+  }
+
+  .rp [data-change='transform'][data-view='live'] .rp-ghost {
+    opacity: 1;
+  }
+
+  /* First load: blank, then outlines from layout, then paint, then on screen. */
+  .rp [data-view='blank'] > * {
+    visibility: hidden;
+  }
+
+  .rp [data-view='wire'] .rp-heading,
+  .rp [data-view='wire'] .rp-line {
+    background: transparent;
+    outline: 2px dashed var(--ink-3);
+    outline-offset: -2px;
+  }
+
+  .rp [data-view='wire'] .rp-box {
+    border-style: dashed;
+    border-color: var(--ink-3);
+    background: transparent;
+    color: transparent;
+  }
+
+  .rp [data-view='wire'] .rp-text {
+    color: transparent;
+    outline: 2px dashed var(--ink-3);
+    outline-offset: -2px;
+  }
+
+  .rp [data-view='painted'] {
+    opacity: 0.35;
+  }
+
+  .rp .rp-status {
+    min-height: 2.7em;
+    padding-top: var(--space-2);
+    box-shadow: 0 -1px 0 var(--faint);
+    font-weight: 700;
+  }
+
+  /* ---------- The pipeline ---------- */
+  .rp .rp-fig {
+    container-type: inline-size;
+    display: grid;
+    gap: var(--space-4);
+    min-width: 0;
+  }
+
+  .rp .rp-pipe {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: var(--space-3);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .rp .rp-st {
+    position: relative;
+    display: grid;
+    grid-template-areas: 'icon' 'name' 'makes' 'bar' 'state';
+    grid-template-rows: auto auto 1fr auto auto;
+    gap: var(--space-2);
+    color: var(--ink);
+    transition: color 0.3s ease;
+  }
+
+  /* Arrow to the next step, between the bars. */
+  .rp .rp-st:not(:last-child) .rp-bar::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: calc(var(--space-3) * -0.5 - 5px);
+    border-left: 9px solid var(--ink-3);
+    border-top: 6px solid transparent;
+    border-bottom: 6px solid transparent;
+  }
+
+  .rp .rp-icon {
+    grid-area: icon;
+    overflow: visible;
+  }
+
+  .rp-i-line { fill: none; stroke: currentColor; stroke-width: 3; }
+  .rp-i-dash { fill: none; stroke: currentColor; stroke-width: 3; stroke-dasharray: 4 4; }
+  .rp-i-fill { fill: currentColor; }
+  .rp-i-dot { fill: currentColor; opacity: 0.45; }
+  .rp-i-hole { fill: none; stroke: currentColor; stroke-width: 3; }
+
+  .rp .rp-st-name {
+    grid-area: name;
+    font-weight: 850;
+    font-variation-settings: 'wdth' 118;
+    font-size: 1.25rem;
+    line-height: 1.1;
+  }
+
+  .rp .rp-st-n {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .rp .rp-st-makes {
+    grid-area: makes;
+    color: var(--ink-2);
+  }
+
+  .rp .rp-st-makes span {
+    display: block;
+  }
+
+  .rp .rp-bar {
+    grid-area: bar;
+    position: relative;
+    display: block;
+    height: 12px;
+    background: var(--faint);
+  }
+
+  .rp .rp-bar span {
+    position: absolute;
+    inset: 0;
+    background: var(--ink);
+    transform-origin: left;
+    transform: scaleX(var(--p, 0));
+  }
+
+  .rp .rp-st-state {
+    grid-area: state;
+    color: var(--ink-3);
+    font-weight: 700;
+  }
+
+  .rp .rp-st[data-s='run'] .rp-st-state,
+  .rp .rp-st[data-s='done'] .rp-st-state {
+    color: var(--ink);
+  }
+
+  .rp .rp-st[data-s='done'] .rp-st-state::before {
+    content: '✓ ';
+  }
+
+  /* Skipped: faded, struck through, with a dashed bar. Text says "skipped" too. */
+  .rp .rp-st[data-s='skip'] {
+    color: var(--ink-3);
+  }
+
+  .rp .rp-st[data-s='skip'] .rp-st-name {
+    text-decoration: line-through;
+    text-decoration-thickness: 3px;
+  }
+
+  .rp .rp-st[data-s='skip'] .rp-st-makes {
+    color: var(--ink-3);
+  }
+
+  .rp .rp-st[data-s='skip'] .rp-bar,
+  .rp .rp-key-skip {
+    background: repeating-linear-gradient(90deg, var(--ink-3) 0 6px, transparent 6px 11px);
+  }
+
+  .rp .rp-st[data-s='skip'] .rp-st-state::before {
+    content: '× ';
+  }
+
+  .rp .rp-key-skip {
+    height: 4px;
+  }
+
+  /* Narrow: the steps stack, top to bottom. */
+  @container (max-width: 40rem) {
+    .rp .rp-pipe {
+      grid-template-columns: minmax(0, 1fr);
+      gap: var(--space-4);
+    }
+
+    .rp .rp-st {
+      grid-template-columns: 52px minmax(0, 1fr) auto;
+      grid-template-areas:
+        'icon name state'
+        'icon makes makes'
+        'bar bar bar';
+      grid-template-rows: auto auto auto;
+      column-gap: var(--space-3);
+      row-gap: var(--space-1);
+    }
+
+    .rp .rp-st-state {
+      align-self: baseline;
+    }
+
+    .rp .rp-st-makes span {
+      display: inline;
+    }
+
+    .rp .rp-icon {
+      width: 52px;
+      height: auto;
+    }
+
+    .rp .rp-bar {
+      height: 8px;
+      margin-top: var(--space-1);
+    }
+
+    .rp .rp-st:not(:last-child) .rp-bar::after {
+      top: auto;
+      bottom: calc(var(--space-4) * -0.5 - 8px);
+      left: 20px;
+      right: auto;
+      border-top: 8px solid var(--ink-3);
+      border-left: 6px solid transparent;
+      border-right: 6px solid transparent;
+      border-bottom: 0;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .rp .rp-page,
+    .rp .rp-st,
+    .rp [data-change='transform'] .rp-box {
+      transition: none;
+    }
+  }
+</style>

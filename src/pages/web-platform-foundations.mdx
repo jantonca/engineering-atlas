@@ -6,6 +6,7 @@ lede: How the browser and JavaScript work underneath every framework. Most front
 number: '03'
 nav:
   - { id: map, label: Map }
+  - { id: render-pipeline, n: '1', label: HTML to pixels }
   - { id: event-loop, n: '2', label: Event loop }
   - { id: out-of-order, n: '4', label: Out of order }
   - { id: http-caching, n: '5', label: HTTP caching }
@@ -14,6 +15,7 @@ nav:
 
 import Chapter from '../components/Chapter.astro';
 import BugMap from '../components/web-platform/BugMap.astro';
+import RenderPipeline from '../components/web-platform/RenderPipeline.astro';
 import EventLoopSim from '../components/web-platform/EventLoopSim.astro';
 import RaceSim from '../components/web-platform/RaceSim.astro';
 import CachingSimulator from '../components/web-platform/CachingSimulator.astro';
@@ -25,6 +27,44 @@ import QuizItem from '../components/QuizItem.astro';
   <p>Eight places, from the network to the screen. Each one is a chapter. Read the symptom first, then the cause.</p>
   <BugMap />
 </section>
+
+<Chapter
+  id="render-pipeline"
+  n="1"
+  topic="From HTML to pixels"
+  question="What does the browser do between receiving HTML and showing pixels on the screen?"
+  title="Five steps to a pixel."
+>
+  <Fragment slot="answer">
+    The browser turns the HTML into a tree of elements and the CSS into a tree of rules. It combines them, computes where every box goes, draws the pixels and puts them on screen. When a script changes the page later, the browser runs only the steps that the change needs.
+  </Fragment>
+
+  <RenderPipeline />
+
+  <Fragment slot="after">
+    ### What delays the first pixels
+
+    A stylesheet in the page's head blocks rendering by default. The browser keeps parsing the HTML while the stylesheet loads, but it does not show the first frame until it has the CSSOM. A stylesheet for another medium, such as `media="print"`, does not block the screen. The browser also does not wait for all the HTML: it can show the first frame while the rest of the page is still arriving.
+
+    A plain `<script>` blocks parsing. The browser stops reading the HTML until it has downloaded and run the script. With `defer`, the parser continues, and the script runs after parsing, in the order of the page. With `async`, the parser also continues, but the script runs as soon as it arrives, in any order. Module scripts are deferred by default.
+
+    ### Reading a size can force layout
+
+    A script can change the width of a box and then read a size, such as `offsetWidth`. The layout is now out of date. To give the right answer, the browser must run style and layout at once, inside the script. This is a forced layout. A change that does not affect any size or position, such as a new background colour, makes the browser run only style before the read. A loop that changes widths and reads sizes in turn runs layout on every pass. This is called layout thrashing. To avoid it, read all the sizes first, then make all the changes.
+
+    ### Why a page jumps
+
+    When an element changes size after the first paint, layout may move the content around it. If visible content moves when the user does not expect it, this is a layout shift. For example, an image without a set size takes no space until it loads, then pushes the text down. Set `width` and `height` on images, so layout can keep space for them. Cumulative Layout Shift (CLS) measures unexpected layout shifts for real users.
+
+    ### A simplified model
+
+    Real browsers split these steps further and run some of them on other threads. Each scripted change in this demo triggers style calculation. Its cost depends on how many elements the change affects. A transform skips paint only when the element has its own layer. Browsers usually create one for a running transform animation, and `will-change: transform` asks for one in advance. Each layer uses memory, so add them only where they help.
+
+    Test yourself with [question 1](#qz-1): it gives you a real case to apply this to.
+
+    Sources, checked 25 November 2026: [web.dev, Rendering performance](https://web.dev/articles/rendering-performance), [MDN, How browsers work](https://developer.mozilla.org/en-US/docs/Web/Performance/Guides/How_browsers_work), [web.dev, Understanding the critical path](https://web.dev/learn/performance/understanding-the-critical-path), [web.dev, Render-blocking CSS (2014)](https://web.dev/articles/critical-rendering-path/render-blocking-css), [MDN, the script element](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/script), [web.dev, Avoid large, complex layouts and layout thrashing](https://web.dev/articles/avoid-large-complex-layouts-and-layout-thrashing), [web.dev, Stick to compositor-only properties](https://web.dev/articles/stick-to-compositor-only-properties-and-manage-layer-count), [web.dev, Cumulative Layout Shift](https://web.dev/articles/cls), [web.dev, Optimize CLS](https://web.dev/articles/optimize-cls).
+  </Fragment>
+</Chapter>
 
 <Chapter
   id="event-loop"
@@ -115,32 +155,33 @@ import QuizItem from '../components/QuizItem.astro';
   <QuizItem
     n="1"
     art="render"
+    href="#render-pipeline"
     question="What does the browser do between receiving HTML and showing pixels on the screen?"
     scenario="A script changes the width of a box on the page. Which steps must the browser run again before the user sees the new width?"
     options={[
       'Only paint. The browser just draws the box again.',
       'Only style. The width is just a new CSS value.',
-      'Layout, then paint. The size changed, so positions must be computed again.',
+      'Style → Layout → Paint → Composite. The size changed, so positions must be computed again.',
       'Nothing, if the box has a CSS transition on width.',
     ]}
     correct={2}
-    why="Layout computes the size and position of every element. A new width can move other elements too, so layout runs again. Then paint draws the new pixels. A transition does not help: it runs layout and paint on every frame of the animation."
+    why="The script changes the box’s CSS width, so style runs first. Then layout computes the size and position of every element: a new width can move other elements too. Then paint draws the new pixels, and composite puts the frame on screen. A transition does not help: it runs layout and paint on every frame of the animation."
     myth="Not every change costs the same. A new colour needs paint but not layout. A new width needs layout and paint. Moving an element with transform can skip both: the compositor moves a layer that is already painted."
     evidence={{
       question: 'Which evidence in a performance trace would show that the width change is the expensive part?',
-      answer: 'In the Chrome DevTools Performance panel, the script that sets the width is followed by Layout and Paint events. If the script reads a size, such as offsetWidth, right after it writes one, the trace shows a forced layout inside the script.',
+      answer: 'In the Chrome DevTools Performance panel, the script that sets the width is followed by Layout and Paint events. Check how long they take: being in the trace does not make them expensive. If the script reads a size, such as offsetWidth, right after it writes one, the trace shows a forced layout inside the script.',
     }}
     points={[
       'HTML becomes the DOM. CSS becomes the CSSOM.',
-      'The render tree combines them and keeps only the elements that are shown.',
+      'The render tree combines them. It leaves out elements with display: none.',
       'Layout computes the size and position of each element.',
-      'Paint turns the result into pixels.',
+      'Paint draws the pixels into layers. Composite puts the layers on screen.',
       'A change to size, or to position with top or left, runs layout again. transform can skip layout and paint.',
     ]}
   >
-    The browser reads the HTML and builds the DOM, a tree of all the elements. It reads the CSS and builds the CSSOM, a tree of all the style rules. It combines them into the render tree. The render tree holds only what is shown, so an element with `display: none` is not in it.
+    The browser reads the HTML and builds the DOM, a tree of all the elements. It reads the CSS and builds the CSSOM, a tree of all the style rules. It combines them into the render tree. The render tree leaves out elements with `display: none`. An element with `visibility: hidden` stays in, because it still takes up space.
 
-    Next comes layout: the browser computes where each element goes and how big it is. Then paint: it draws the pixels. The first pixels appear only after these steps. When a script changes sizes later, layout and paint run again.
+    Next comes layout: the browser computes where each element goes and how big it is. Then paint: it draws the pixels into layers. Then composite: it puts the layers together on screen. The first pixels appear only after these steps. When a script changes sizes later, layout and paint run again.
   </QuizItem>
 
   <QuizItem
