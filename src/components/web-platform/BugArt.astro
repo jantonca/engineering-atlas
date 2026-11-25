@@ -1,0 +1,116 @@
+---
+// The small drawings for the eight places where bugs start.
+// Shared by the bug map and the quiz.
+export type Art = 'order' | 'cache' | 'data' | 'main' | 'worker' | 'render' | 'memory' | 'browsers';
+
+interface Props {
+  art: Art;
+  class?: string;
+}
+
+const { art, class: className } = Astro.props;
+---
+
+<svg class={`bug-art ${className ?? ''}`} viewBox="0 0 176 72" width="176" height="72" aria-hidden="true">
+  {art === 'order' && (
+    <>
+      <circle class="ink" cx="8" cy="20" r="4" />
+      <line class="stroke" x1="8" y1="20" x2="160" y2="20" />
+      <circle class="bad" cx="164" cy="20" r="6" />
+      <circle class="ink" cx="44" cy="50" r="4" />
+      <line class="stroke" x1="44" y1="50" x2="104" y2="50" />
+      <circle class="good" cx="108" cy="50" r="6" />
+      <line class="dash" x1="108" y1="62" x2="164" y2="62" />
+    </>
+  )}
+  {art === 'cache' && (
+    <>
+      <circle class="track" cx="36" cy="36" r="26" />
+      <circle class="arc good-stroke" cx="36" cy="36" r="26" pathLength="100" stroke-dasharray="64 100" transform="rotate(-90 36 36)" />
+      <circle class="bad" cx="36" cy="36" r="8" />
+      <line class="dash" x1="72" y1="36" x2="124" y2="36" />
+      <rect class="frame" x="132" y="6" width="38" height="60" rx="4" />
+      <path class="ink" d="M151 24 L154 33 L163 36 L154 39 L151 48 L148 39 L139 36 L148 33 Z" />
+    </>
+  )}
+  {art === 'data' && (
+    <>
+      <rect class="frame dashed" x="14" y="14" width="44" height="44" rx="2" />
+      <circle class="bad" cx="134" cy="36" r="22" />
+      <path class="stroke" d="M106 36 H70" />
+      <path class="stroke" d="M78 28 70 36 78 44" />
+    </>
+  )}
+  {art === 'main' && (
+    <>
+      <line class="thin" x1="2" y1="60" x2="174" y2="60" />
+      <rect class="ink" x="6" y="40" width="12" height="20" />
+      <rect class="ink" x="22" y="40" width="8" height="20" />
+      <rect class="bad" x="36" y="40" width="100" height="20" />
+      <rect class="ink" x="140" y="40" width="10" height="20" />
+      <circle class="warn-stroke" cx="56" cy="14" r="6" />
+      <line class="warn-dash" x1="62" y1="14" x2="140" y2="14" />
+      <path class="warn-stroke" d="M140 14 V34 M135 29 140 34 145 29" />
+    </>
+  )}
+  {art === 'worker' && (
+    <>
+      <line class="thin" x1="2" y1="30" x2="174" y2="30" />
+      <line class="thin" x1="2" y1="66" x2="174" y2="66" />
+      <rect class="ink" x="6" y="14" width="10" height="16" />
+      <rect class="ink" x="40" y="14" width="10" height="16" />
+      <rect class="ink" x="74" y="14" width="10" height="16" />
+      <rect class="ink" x="108" y="14" width="10" height="16" />
+      <rect class="ink" x="142" y="14" width="10" height="16" />
+      <rect class="good" x="20" y="48" width="140" height="18" />
+    </>
+  )}
+  {art === 'render' && (
+    <>
+      <rect class="frame" x="4" y="4" width="168" height="64" rx="4" />
+      <rect class="ink" x="14" y="14" width="56" height="8" />
+      <rect class="frame dashed" x="14" y="30" width="110" height="10" />
+      <rect class="bad" x="14" y="50" width="110" height="10" />
+      <path class="bad-stroke" d="M136 32 V54 M131 49 136 54 141 49" />
+    </>
+  )}
+  {art === 'memory' && (
+    <>
+      <line class="thin" x1="2" y1="66" x2="174" y2="66" />
+      <polyline class="bad-line" points="6,62 28,46 34,56 58,38 64,48 88,30 94,40 118,22 124,32 148,14 154,24 172,10" />
+    </>
+  )}
+  {art === 'browsers' && (
+    <>
+      <rect class="frame faded" x="6" y="6" width="80" height="46" rx="4" />
+      <rect class="frame faded" x="46" y="12" width="80" height="46" rx="4" />
+      <rect class="frame bad-frame" x="86" y="20" width="84" height="48" rx="4" />
+      <path class="bad-stroke" d="M118 34 138 54 M138 34 118 54" />
+    </>
+  )}
+</svg>
+
+<style>
+  .bug-art {
+    overflow: visible;
+  }
+
+  /* Drawing parts */
+  .ink { fill: var(--ink); }
+  .bad { fill: var(--bad); }
+  .good { fill: var(--good); }
+  .stroke { fill: none; stroke: var(--ink); stroke-width: 3; }
+  .thin { stroke: var(--ink-3); stroke-width: 2; }
+  .dash { stroke: var(--ink-3); stroke-width: 3; stroke-dasharray: 6 6; }
+  .frame { fill: none; stroke: var(--ink); stroke-width: 3; }
+  .frame.dashed { stroke: var(--ink-3); stroke-dasharray: 6 5; }
+  .frame.faded { stroke: var(--ink-3); }
+  .bad-frame { stroke: var(--bad); }
+  .track { fill: none; stroke: var(--faint); stroke-width: 8; }
+  .arc { fill: none; stroke-width: 8; }
+  .good-stroke { stroke: var(--good); }
+  .bad-stroke { fill: none; stroke: var(--bad); stroke-width: 3; }
+  .warn-stroke { fill: none; stroke: var(--warn); stroke-width: 3; }
+  .warn-dash { stroke: var(--warn); stroke-width: 3; stroke-dasharray: 4 5; }
+  .bad-line { fill: none; stroke: var(--bad); stroke-width: 3; stroke-linejoin: round; }
+</style>

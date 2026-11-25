@@ -1,0 +1,389 @@
+---
+// Event loop simulator: one main thread, one long task, one tap.
+// The visitor sets the task length, chooses one block or small pieces,
+// and taps a real button while the task runs.
+// Teaching model, simplified: tasks run one at a time to completion (HTML event loop).
+// A frame is due every 1000/60 ms. The screen updates only between tasks, so a frame
+// that falls due during a task waits for that task to end.
+import '../../styles/sim.css';
+---
+
+<div class="sx els" data-els>
+  <div class="sx-controls">
+    <div class="sx-ctl">
+      <label class="sx-label" for="els-len">How long does the task run?</label>
+      <output class="sx-value" for="els-len" data-len-out>300 ms</output>
+      <div class="sx-range">
+        <span class="sx-range-zone is-bad" style="left: 5.17%" aria-hidden="true">long task</span>
+        <input id="els-len" type="range" min="20" max="600" step="10" value="300" aria-describedby="els-len-hint" data-len />
+      </div>
+      <div class="sx-scale" aria-hidden="true">
+        <span style="left: 5.17%; transform: translateX(-50%)">50 ms</span>
+        <span style="right: 0">600 ms</span>
+      </div>
+      <p id="els-len-hint" class="sx-hint">A task that runs longer than 50 ms is called a long task.</p>
+    </div>
+
+    <fieldset class="sx-ctl">
+      <legend class="sx-label">How does the work run?</legend>
+      <div class="sx-choices">
+        <label class="sx-choice">
+          <input type="radio" name="els-mode" value="block" checked data-mode />
+          <svg width="64" height="16" aria-hidden="true"><rect x="0" y="2" width="64" height="12"></rect></svg>
+          <span class="sx-choice-main">One block</span>
+          <span class="sx-choice-sub">all the work in one task</span>
+        </label>
+        <label class="sx-choice">
+          <input type="radio" name="els-mode" value="pieces" data-mode />
+          <svg width="64" height="16" aria-hidden="true">
+            <rect x="0" y="2" width="13" height="12"></rect><rect x="17" y="2" width="13" height="12"></rect>
+            <rect x="34" y="2" width="13" height="12"></rect><rect x="51" y="2" width="13" height="12"></rect>
+          </svg>
+          <span class="sx-choice-main">Small pieces</span>
+          <span class="sx-choice-sub">40 ms tasks, one after another</span>
+        </label>
+      </div>
+    </fieldset>
+  </div>
+
+  <div class="sx-stage">
+    <div class="sx-side">
+      <div class="sx-screen" data-screen>
+        <p class="sx-screen-name">A shop page</p>
+        <p class="els-product">Desk lamp</p>
+        <button class="els-buy" type="button" data-tap>Add to cart</button>
+        <p class="els-help" data-help>Tap the button while the task runs.</p>
+      </div>
+      <div class="sx-bar">
+        <button class="sx-btn" type="button" data-run>
+          <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M5 3 17 10 5 17Z" fill="currentColor"></path></svg>
+          Run the task
+        </button>
+        <p class="sx-note">Slow motion: 6 times slower than real time.</p>
+      </div>
+    </div>
+
+    <figure class="sx-tl" data-tl>
+      <div class="sx-lane">
+        <p class="sx-lane-name">Main thread: runs one task at a time</p>
+        <div class="sx-track is-tall" data-track="main"></div>
+      </div>
+      <div class="sx-lane">
+        <p class="sx-lane-name">Your tap</p>
+        <div class="sx-track" data-track="tap"></div>
+      </div>
+      <div class="sx-lane">
+        <p class="sx-lane-name">Screen updates</p>
+        <div class="sx-track" data-track="screen"></div>
+      </div>
+      <div class="sx-axis" aria-hidden="true">
+        <span style="left: 0">0</span><span style="left: 25%">200</span><span style="left: 50%">400</span>
+        <span style="left: 75%">600</span><span style="left: 100%">800 ms</span>
+      </div>
+      <span class="sx-playhead" data-playhead hidden></span>
+      <ul class="sx-legend" aria-hidden="true">
+        <li><span class="sx-key is-bad"></span>long task</li>
+        <li><span class="sx-key"></span>short task</li>
+        <li><span class="sx-key is-wait"></span>tap waits</li>
+        <li><span class="sx-key is-good"></span>tap handler, then the new frame</li>
+        <li><span class="sx-key is-tick"></span>a chance to update the screen</li>
+      </ul>
+      <figcaption class="visually-hidden">Timeline of the main thread, your tap and screen updates. The numbered steps below describe it.</figcaption>
+    </figure>
+  </div>
+
+
+  <div class="sx-verdict" aria-live="polite" data-verdict>
+    <p class="sx-big"></p>
+    <p class="sx-unit"></p>
+    <p class="sx-text"></p>
+  </div>
+  <ol class="sx-steps" data-steps></ol>
+</div>
+
+<script>
+  import { el, fitLabel, keepInside, onResize, place, play, steps as makeSteps, verdict as makeVerdict, whenVisible, type Tone } from '../../scripts/sim';
+
+  const SPAN = 800;
+  const T0 = 100; // the task starts here
+  const HANDLER = 10; // the tap handler's own work
+  const FRAME = 1000 / 60;
+  const PIECE = 40;
+  const SLOW = 6;
+  const DEMO_TAP = 160;
+  const LAST_TAP = 750; // later taps could not reach the screen before the run ends
+
+  type Kind = 'task' | 'piece' | 'handler';
+  interface Block { kind: Kind; start: number; end: number }
+  interface Job { kind: Kind; ready: number; dur: number; left: number; order: number }
+
+  // Run jobs one at a time. When the thread is free, it takes the job that was queued first.
+  const simulate = (len: number, pieces: boolean, tap: number) => {
+    let order = 0;
+    const queue: Job[] = [
+      pieces
+        ? { kind: 'piece', ready: T0, dur: Math.min(PIECE, len), left: len - Math.min(PIECE, len), order: order++ }
+        : { kind: 'task', ready: T0, dur: len, left: 0, order: order++ },
+      { kind: 'handler', ready: tap, dur: HANDLER, left: 0, order: order++ },
+    ];
+    const blocks: Block[] = [];
+    let t = 0;
+    while (queue.length) {
+      const ready = queue.filter((j) => j.ready <= t);
+      if (!ready.length) {
+        t = Math.min(...queue.map((j) => j.ready));
+        continue;
+      }
+      ready.sort((a, b) => a.ready - b.ready || a.order - b.order);
+      const job = ready[0];
+      queue.splice(queue.indexOf(job), 1);
+      blocks.push({ kind: job.kind, start: t, end: t + job.dur });
+      t += job.dur;
+      if (job.left > 0) {
+        const d = Math.min(PIECE, job.left);
+        queue.push({ kind: 'piece', ready: t, dur: d, left: job.left - d, order: order++ });
+      }
+    }
+    const handler = blocks.find((b) => b.kind === 'handler')!;
+    // One schedule of screen updates. Each due frame updates the screen at once if the
+    // thread is free, or at the end of the task that is running.
+    const ticks: number[] = [];
+    for (let i = 0; i * FRAME <= SPAN; i++) {
+      const f = Math.round(i * FRAME * 1000) / 1000; // avoid float drift at task edges
+      const busy = blocks.find((b) => b.start < f && f < b.end);
+      const at = busy ? busy.end : f;
+      if (at <= SPAN && !ticks.includes(at)) ticks.push(at);
+    }
+    // The button changes at the first screen update after the handler ends.
+    const paint = ticks.find((t) => t >= handler.end) ?? SPAN;
+    return { blocks, handler, paint, ticks };
+  };
+
+  const ms = (n: number) => `${Math.round(n)} ms`;
+
+  for (const root of document.querySelectorAll<HTMLElement>('[data-els]')) {
+    const $ = <T extends Element = HTMLElement>(s: string) => root.querySelector<T>(s)!;
+    const lenInput = $<HTMLInputElement>('[data-len]');
+    const modeInputs = [...root.querySelectorAll<HTMLInputElement>('[data-mode]')];
+    const tracks = {
+      main: $('[data-track="main"]'),
+      tap: $('[data-track="tap"]'),
+      screen: $('[data-track="screen"]'),
+    };
+    const playhead = $('[data-playhead]');
+    const tapBtn = $<HTMLButtonElement>('[data-tap]');
+    const help = $('[data-help]');
+    const screen = $('[data-screen]');
+    const stepList = makeSteps($('[data-steps]'));
+    const result = makeVerdict($('[data-verdict]'));
+
+    let stop = () => {};
+    let playing = false;
+    let now = 0;
+    let tap = DEMO_TAP;
+    let userTap = false;
+    let covers: HTMLElement[] = [];
+    let stepTimes: number[] = [];
+    let sim = simulate(300, false, DEMO_TAP);
+
+    const len = () => Number(lenInput.value);
+    const pieces = () => modeInputs.find((i) => i.checked)?.value === 'pieces';
+
+    const draw = () => {
+      sim = simulate(len(), pieces(), tap);
+      for (const tr of Object.values(tracks)) tr.replaceChildren();
+
+      for (const b of sim.blocks) {
+        const long = b.end - b.start > 50;
+        const cls = b.kind === 'handler' ? 'is-good' : long ? 'is-bad' : '';
+        const node = el('span', `sx-block ${cls}`);
+        place(node, b.start, b.end, SPAN);
+        if (b.kind === 'piece') node.style.boxShadow = 'inset -2px 0 var(--paper)';
+        tracks.main.append(node);
+        if (b.kind === 'task') {
+          const lab = el('span', 'sx-block-label');
+          lab.style.left = `${(b.start / SPAN) * 100}%`;
+          tracks.main.append(lab);
+          fitLabel(lab, node, [`task · ${ms(b.end - b.start)}`, ms(b.end - b.start)]);
+        }
+      }
+
+      const dot = el('span', 'sx-dot');
+      dot.style.left = `${(tap / SPAN) * 100}%`;
+      const wait = el('span', 'sx-block is-wait');
+      place(wait, tap, sim.handler.start, SPAN);
+      const waited = sim.handler.start - tap;
+      const tag = el('span', 'sx-tag', waited > 0 ? `waits ${ms(waited)}` : 'runs at once');
+      tag.style.left = `${(sim.handler.start / SPAN) * 100}%`;
+      tag.style.color = waited > 0 ? 'var(--warn)' : 'var(--good)';
+      tracks.tap.append(wait, dot, tag);
+      keepInside(tag, tracks.tap);
+
+      for (const f of sim.ticks) {
+        const m = el('span', 'sx-mark');
+        m.style.left = `${(f / SPAN) * 100}%`;
+        tracks.screen.append(m);
+      }
+      const p = el('span', 'sx-mark is-good');
+      p.style.left = `${(sim.paint / SPAN) * 100}%`;
+      tracks.screen.append(p);
+
+      covers = Object.values(tracks).map((tr) => {
+        const c = el('span', 'sx-cover');
+        tr.append(c);
+        return c;
+      });
+
+      // Text version, with the time at which each step happens. Sorted by time at the end,
+      // so a tap before the task starts is listed first.
+      const lines: string[] = [];
+      stepTimes = [];
+      const who = userTap ? 'You tap' : 'A tap comes';
+      // A tap just before 100 ms runs first and pushes the work back.
+      const workStart = sim.blocks.find((b) => b.kind !== 'handler')!.start;
+      const after = workStart > T0 ? ', after the tap handler' : '';
+      lines.push(pieces()
+        ? `The work starts at ${ms(workStart)}${after}. It runs as ${Math.ceil(len() / PIECE)} small tasks of up to ${PIECE} ms.`
+        : `The task starts at ${ms(workStart)}${after}. It will run for ${ms(len())}.`);
+      stepTimes.push(workStart);
+      if (waited > 0) {
+        lines.push(`${who} at ${ms(tap)}. The tap goes into the task queue and waits.`);
+        stepTimes.push(tap);
+        lines.push(pieces()
+          ? `The current small task ends at ${ms(sim.handler.start)}. The event loop takes the tap next, before the rest of the work.`
+          : `The task ends at ${ms(sim.handler.start)}. Only now can the event loop take the tap.`);
+        stepTimes.push(sim.handler.start);
+      } else {
+        lines.push(`${who} at ${ms(tap)}. The main thread is free, so the tap is handled at once.`);
+        stepTimes.push(tap);
+      }
+      lines.push(`The tap handler runs for ${HANDLER} ms.`);
+      stepTimes.push(sim.handler.start);
+      const late = sim.paint - sim.handler.end;
+      lines.push(late > 0
+        ? `The next screen update is at ${ms(sim.paint)}, ${ms(late)} later. The button changes.`
+        : `A frame was due during the handler, so the screen updates at once, at ${ms(sim.paint)}. The button changes.`);
+      stepTimes.push(sim.paint);
+      // At the same moment the screen update comes before the work starts (line 0):
+      // the browser renders between tasks.
+      const rank = (i: number) => (i === 0 ? 1 : 0);
+      const order = lines.map((_, i) => i).sort((a, b) => stepTimes[a] - stepTimes[b] || rank(a) - rank(b) || a - b);
+      stepTimes = order.map((i) => stepTimes[i]);
+      stepList.set(order.map((i) => lines[i]));
+    };
+
+    const frame = (t: number) => {
+      now = t;
+      const pct = `${(t / SPAN) * 100}%`;
+      for (const c of covers) c.style.left = pct;
+      playhead.hidden = false;
+      playhead.style.left = pct;
+      stepList.reveal(stepTimes, t);
+      const done = t >= sim.paint;
+      tapBtn.textContent = done ? 'Added ✓' : 'Add to cart';
+      tapBtn.classList.toggle('is-done', done);
+      const frozen = t >= tap && !done;
+      screen.classList.toggle('is-bad', frozen && t - tap > 200);
+    };
+
+    const finish = () => {
+      playing = false;
+      playhead.hidden = true;
+      help.textContent = 'Run it again and tap at a different moment.';
+      // Total latency = waiting in the queue + the handler + waiting for the next screen update.
+      const delay = sim.paint - tap;
+      const waited = sim.handler.start - tap;
+      const toFrame = sim.paint - sim.handler.end;
+      const tone: Tone = delay <= 200 ? 'good' : delay <= 500 ? 'warn' : 'bad';
+      const rating = {
+        good: 'web.dev rates 200 ms or less as good.',
+        warn: 'web.dev rates more than 200 ms as needing improvement.',
+        bad: 'web.dev rates more than 500 ms as poor.',
+        net: '',
+      }[tone];
+      const frameText = Math.round(toFrame) > 0 ? `the screen updated ${ms(toFrame)} after that` : 'a frame was already due, so the screen updated at once';
+      const parts = `It waited ${ms(waited)} in the queue, the handler ran for ${ms(HANDLER)}, and ${frameText}.`;
+      const why = waited > 0
+        ? pieces()
+          ? `The tap waited only for the current small task. ${parts} ${rating}`
+          : `The tap waited for the whole task to end, and the button could not change meanwhile. ${parts} ${rating}`
+        : `The main thread was free, so the tap was handled at once. ${parts} ${rating}`;
+      result.show(ms(delay), 'from tap to screen update', why, tone);
+    };
+
+    const run = () => {
+      stop();
+      playing = true;
+      userTap = false;
+      tap = DEMO_TAP;
+      result.hide();
+      screen.classList.remove('is-bad');
+      help.textContent = 'Tap the button while the task runs.';
+      draw();
+      stop = play(SPAN, SLOW, frame, finish);
+    };
+
+    tapBtn.addEventListener('click', () => {
+      if (!playing) {
+        run();
+        return;
+      }
+      if (userTap) return;
+      if (now > LAST_TAP) {
+        help.textContent = 'Too late for this run. Run it again and tap while the task runs.';
+        return;
+      }
+      userTap = true;
+      tap = now;
+      help.textContent = `You tapped at ${ms(now)}.`;
+      draw();
+      frame(now);
+    });
+
+    $('[data-run]').addEventListener('click', run);
+    let debounce = 0;
+    lenInput.addEventListener('input', () => {
+      $('[data-len-out]').textContent = ms(len());
+      clearTimeout(debounce);
+      debounce = window.setTimeout(run, 450);
+    });
+    modeInputs.forEach((i) => i.addEventListener('change', run));
+
+    draw();
+    frame(0);
+    playhead.hidden = true;
+    onResize(root, () => {
+      draw();
+      frame(now);
+      if (!playing) playhead.hidden = true;
+    });
+    whenVisible(root.querySelector('[data-tl]')!, run);
+  }
+</script>
+
+<style is:global>
+  .els .els-product {
+    font-weight: 800;
+    font-variation-settings: 'wdth' 112;
+    font-size: 1.375rem;
+  }
+
+  .els .els-buy {
+    min-height: 48px;
+    border: 0;
+    border-radius: 24px;
+    background: var(--ink);
+    color: var(--paper);
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .els .els-buy.is-done {
+    background: var(--good);
+    color: var(--paper);
+  }
+
+  .els .els-help {
+    color: var(--ink-2);
+  }
+</style>

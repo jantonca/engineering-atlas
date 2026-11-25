@@ -1,0 +1,1273 @@
+---
+// HTTP caching simulator: page, browser cache and server.
+// The visitor sets the copy's age and the server's file version,
+// then watches the request travel.
+// Facts: RFC 9111 §4.2 (fresh iff lifetime > age), §4.3 (validation); MDN HTTP caching.
+---
+
+<div class="sim" data-sim>
+  <svg width="0" height="0" class="defs" aria-hidden="true">
+    <symbol id="glyph-v1" viewBox="0 0 40 40"><circle cx="20" cy="20" r="16"></circle></symbol>
+    <symbol id="glyph-v2" viewBox="0 0 40 40">
+      <path d="M20 2 L24.5 15.5 L38 20 L24.5 24.5 L20 38 L15.5 24.5 L2 20 L15.5 15.5 Z"></path>
+    </symbol>
+  </svg>
+
+  <div class="controls">
+    <div class="ctl ctl-age">
+      <label for="sim-age" class="ctl-label">Age of the browser's copy</label>
+      <output for="sim-age" class="ctl-value" data-age-out>2 min</output>
+      <div class="track">
+        <span class="zone zone-fresh" aria-hidden="true">fresh</span>
+        <span class="zone zone-stale" aria-hidden="true">stale</span>
+        <input id="sim-age" type="range" min="0" max="600" step="30" value="120"
+          aria-describedby="sim-age-hint" data-age />
+      </div>
+      <div class="scale" aria-hidden="true"><span>0</span><span>5 min</span><span>10 min</span></div>
+      <p id="sim-age-hint" class="ctl-hint">
+        The server sent the copy with <code>max-age=300</code>. That means fresh for 5 minutes.
+      </p>
+    </div>
+
+    <fieldset class="ctl ctl-server">
+      <legend class="ctl-label">File on the server now</legend>
+      <div class="choices">
+        <label class="choice">
+          <input type="radio" name="sim-server" value="v1" checked data-server />
+          <svg class="choice-glyph" width="40" height="40" aria-hidden="true"><use href="#glyph-v1"></use></svg>
+          <span class="choice-main">v1</span>
+          <span class="choice-sub">same as the copy</span>
+        </label>
+        <label class="choice">
+          <input type="radio" name="sim-server" value="v2" data-server />
+          <svg class="choice-glyph" width="40" height="40" aria-hidden="true"><use href="#glyph-v2"></use></svg>
+          <span class="choice-main">v2</span>
+          <span class="choice-sub">new file deployed</span>
+        </label>
+      </div>
+    </fieldset>
+  </div>
+
+  <figure class="stage-wrap">
+    <div class="stage" data-stage aria-hidden="true">
+      <p class="zone-label zone-browser">Inside the browser</p>
+      <p class="zone-label zone-network">Over the network</p>
+
+      <div class="station" data-station="page">
+        <div class="draw draw-page">
+          <svg class="art" viewBox="0 0 150 116" preserveAspectRatio="none">
+            <rect class="frame" x="2" y="2" width="146" height="112" rx="6"></rect>
+            <line class="frame" x1="2" y1="24" x2="148" y2="24"></line>
+            <circle class="fill" cx="16" cy="13" r="3.5"></circle>
+            <circle class="fill" cx="28" cy="13" r="3.5"></circle>
+            <circle class="fill" cx="40" cy="13" r="3.5"></circle>
+          </svg>
+          <div class="content" data-page-content>
+            <span class="wait-dots" data-wait><i></i><i></i><i></i></span>
+          </div>
+        </div>
+        <div class="st-text">
+          <p class="st-name">Page</p>
+          <p class="st-status" data-page-status>waiting</p>
+        </div>
+      </div>
+
+      <div class="wire wire-a" data-wire="a">
+        <span class="line"></span>
+        <p class="msg msg-req" data-msg="a-req"></p>
+        <p class="msg msg-res" data-msg="a-res"></p>
+      </div>
+
+      <div class="station" data-station="cache">
+        <div class="draw draw-cache">
+          <svg class="art" viewBox="0 0 140 140">
+            <circle class="dial-track" cx="70" cy="70" r="50"></circle>
+            <circle class="dial" cx="70" cy="70" r="50" pathLength="100" data-dial></circle>
+          </svg>
+          <div class="content" data-cache-content></div>
+        </div>
+        <div class="st-text">
+          <p class="st-name">Browser cache</p>
+          <p class="st-status" data-cache-status></p>
+          <p class="st-meta"><code data-cache-etag>ETag: "v1"</code></p>
+        </div>
+      </div>
+
+      <div class="wire wire-b" data-wire="b">
+        <span class="line"></span>
+        <p class="msg msg-req" data-msg="b-req"></p>
+        <p class="msg msg-res" data-msg="b-res"></p>
+        <p class="msg msg-idle" data-msg="b-idle">nothing sent</p>
+      </div>
+
+      <div class="station" data-station="server">
+        <div class="draw draw-server">
+          <svg class="art" viewBox="0 0 96 140">
+            <rect class="frame" x="4" y="2" width="88" height="136" rx="8"></rect>
+            <line class="frame thin" x1="20" y1="20" x2="76" y2="20"></line>
+            <line class="frame thin" x1="20" y1="30" x2="76" y2="30"></line>
+            <line class="frame thin" x1="20" y1="110" x2="76" y2="110"></line>
+            <line class="frame thin" x1="20" y1="120" x2="76" y2="120"></line>
+          </svg>
+          <div class="content" data-server-content></div>
+        </div>
+        <div class="st-text">
+          <p class="st-name">Server</p>
+          <p class="st-status" data-server-status>has v1</p>
+        </div>
+      </div>
+
+      <div class="packet" data-packet hidden>
+        <span class="tail"></span>
+        <span class="head" data-packet-head></span>
+      </div>
+    </div>
+    <figcaption class="visually-hidden">
+      The page, the browser cache and the server. The numbered steps below describe each move.
+    </figcaption>
+  </figure>
+
+  <div class="outcome">
+    <div class="verdict" aria-live="polite" data-verdict>
+      <p class="v-big" data-v-big></p>
+      <p class="v-unit" data-v-unit></p>
+      <p class="v-text" data-v-text></p>
+    </div>
+    <ol class="steps" data-steps></ol>
+    <button class="replay" type="button" data-replay>
+      <svg viewBox="0 0 20 20" width="20" height="20" aria-hidden="true">
+        <path d="M4 10a6 6 0 1 0 2-4.5" fill="none" stroke="currentColor" stroke-width="2.2"></path>
+        <path d="M3 2v5h5" fill="none" stroke="currentColor" stroke-width="2.2"></path>
+      </svg>
+      Play again
+    </button>
+  </div>
+</div>
+
+<script>
+  const MAX_AGE = 300; // seconds, from Cache-Control: max-age=300
+  const HOP_MS = 950;
+  const GAP_MS = 420;
+
+  type Version = 'v1' | 'v2';
+  type Node = 'page' | 'cache' | 'server';
+  type Msg = 'a-req' | 'a-res' | 'b-req' | 'b-res';
+  type Tone = 'ink' | 'net' | 'fresh' | 'stale' | 'wrong';
+
+  type Action =
+    | { kind: 'step'; text: string }
+    | { kind: 'hop'; from: Node; to: Node; msg: Msg; lines: string[]; carry: Version | '304' | null; tone: Tone }
+    | { kind: 'set'; apply: () => void }
+    | { kind: 'wait'; ms: number };
+
+  const fmtAge = (s: number) => {
+    const m = Math.floor(s / 60);
+    const r = s % 60;
+    if (m === 0) return `${r} s`;
+    return r ? `${m} min ${r} s` : `${m} min`;
+  };
+
+  const glyph = (v: Version, size: number) =>
+    `<svg class="glyph" width="${size}" height="${size}" aria-hidden="true"><use href="#glyph-${v}"></use></svg>`;
+
+  const fileArt = (v: Version, size: number) =>
+    `<span class="file">${glyph(v, size)}<span class="file-label">${v}</span></span>`;
+
+  for (const root of document.querySelectorAll<HTMLElement>('[data-sim]')) {
+    const $ = <T extends Element = HTMLElement>(sel: string) => root.querySelector<T>(sel)!;
+    const ageInput = $<HTMLInputElement>('[data-age]');
+    const ageOut = $('[data-age-out]');
+    const serverInputs = [...root.querySelectorAll<HTMLInputElement>('[data-server]')];
+    const stage = $('[data-stage]');
+    const packet = $('[data-packet]');
+    const packetHead = $('[data-packet-head]');
+    const dial = $<SVGCircleElement>('[data-dial]');
+    const stepsEl = $('[data-steps]');
+    const verdictEl = $('[data-verdict]');
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+    let runId = 0;
+
+    const state = () => ({
+      age: Number(ageInput.value),
+      server: (serverInputs.find((i) => i.checked)?.value ?? 'v1') as Version,
+    });
+
+    const setTone = (el: Element, tone: Tone | null) => {
+      const h = el as HTMLElement;
+      if (tone) h.dataset.tone = tone;
+      else delete h.dataset.tone;
+    };
+
+    const setText = (sel: string, value: string, tone: Tone | null = null) => {
+      const el = $(sel);
+      el.textContent = value;
+      setTone(el, tone);
+    };
+
+    const station = (n: Node) => $(`[data-station="${n}"]`);
+
+    const pulse = (n: Node) => {
+      if (reduced.matches) return;
+      station(n).querySelector('.draw')!.animate(
+        [{ transform: 'scale(1)' }, { transform: 'scale(1.06)' }, { transform: 'scale(1)' }],
+        { duration: 420, easing: 'cubic-bezier(.3,0,.2,1)' },
+      );
+    };
+
+    const showCache = (version: Version, age: number, note?: string) => {
+      const fresh = age < MAX_AGE;
+      const left = Math.max(MAX_AGE - age, 0);
+      $('[data-cache-content]').innerHTML = fileArt(version, 36);
+      setText('[data-cache-etag]', `ETag: "${version}"`);
+      setText(
+        '[data-cache-status]',
+        note ?? (fresh ? `fresh · ${fmtAge(left)} left` : `stale · checked before use`),
+        fresh ? 'fresh' : 'stale',
+      );
+      dial.style.strokeDasharray = `${(left / MAX_AGE) * 100} 100`;
+      station('cache').dataset.fresh = String(fresh);
+    };
+
+    const showPage = (version: Version | null, tone: Tone | null, status: string) => {
+      $('[data-page-content]').innerHTML = version
+        ? fileArt(version, 44)
+        : '<span class="wait-dots"><i></i><i></i><i></i></span>';
+      setText('[data-page-status]', status, tone === 'wrong' ? 'wrong' : null);
+      station('page').dataset.tone = tone ?? '';
+    };
+
+    const showServer = (version: Version) => {
+      $('[data-server-content]').innerHTML = fileArt(version, 36);
+      setText('[data-server-status]', version === 'v2' ? 'has v2 · new' : 'has v1');
+    };
+
+    const clearMessages = () => {
+      for (const m of root.querySelectorAll<HTMLElement>('[data-msg]')) {
+        m.classList.remove('is-on');
+        if (m.dataset.msg !== 'b-idle') m.replaceChildren();
+      }
+      stage.querySelectorAll('.wire').forEach((w) => w.classList.remove('is-used'));
+    };
+
+    const showMessage = (msg: Msg, lines: string[], tone: Tone) => {
+      const el = $(`[data-msg="${msg}"]`);
+      const fwd = msg.endsWith('req');
+      el.replaceChildren(
+        ...lines.map((line, i) => {
+          const row = document.createElement('span');
+          row.className = 'msg-line';
+          if (i === 0) {
+            const arrow = document.createElement('span');
+            arrow.className = `arrow ${fwd ? 'arrow-fwd' : 'arrow-back'}`;
+            row.append(arrow);
+          }
+          row.append(document.createTextNode(line));
+          return row;
+        }),
+      );
+      setTone(el, tone);
+      el.classList.add('is-on');
+      el.closest('.wire')!.classList.add('is-used');
+    };
+
+    const centre = (n: Node) => {
+      const box = station(n).querySelector('.draw')!.getBoundingClientRect();
+      const s = stage.getBoundingClientRect();
+      return { x: box.left - s.left + box.width / 2, y: box.top - s.top + box.height / 2 };
+    };
+
+    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+    const hop = async (id: number, from: Node, to: Node, carry: Version | '304' | null, tone: Tone) => {
+      const a = centre(from);
+      const b = centre(to);
+      const angle = (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI;
+      packet.style.setProperty('--angle', `${angle}deg`);
+      packetHead.innerHTML =
+        carry === 'v1' || carry === 'v2' ? fileArt(carry, 22) : carry === '304' ? '<span class="file-label">304</span>' : '';
+      packet.dataset.shape = carry ? 'doc' : 'dot';
+      setTone(packet, tone);
+      packet.hidden = false;
+      const t = (p: { x: number; y: number }) => `translate(${p.x}px, ${p.y}px)`;
+      const anim = packet.animate(
+        [
+          { transform: t(a), opacity: 0 },
+          { transform: t(a), opacity: 1, offset: 0.1 },
+          { transform: t(b), opacity: 1, offset: 0.9 },
+          { transform: t(b), opacity: 0 },
+        ],
+        { duration: HOP_MS, easing: 'cubic-bezier(.5,0,.2,1)', fill: 'forwards' },
+      );
+      await anim.finished.catch(() => {});
+      // A newer run owns the packet now; leave it alone.
+      if (id !== runId) return;
+      packet.hidden = true;
+      pulse(to);
+    };
+
+    const addStep = (t: string) => {
+      for (const li of stepsEl.children) li.classList.remove('is-now');
+      const li = document.createElement('li');
+      li.className = 'is-now';
+      const n = document.createElement('span');
+      n.className = 'step-n';
+      n.textContent = String(stepsEl.children.length + 1);
+      li.append(n, document.createTextNode(t));
+      stepsEl.append(li);
+    };
+
+    const verdict = (big: string, unit: string, body: string, tone: Tone) => {
+      $('[data-v-big]').textContent = big;
+      $('[data-v-unit]').textContent = unit;
+      $('[data-v-text]').textContent = body;
+      setTone(verdictEl, tone);
+      verdictEl.classList.add('is-on');
+    };
+
+    const plan = (age: number, server: Version): Action[] => {
+      const fresh = age < MAX_AGE;
+      const changed = server === 'v2';
+      const left = MAX_AGE - age;
+      const out: Action[] = [
+        { kind: 'step', text: 'The page asks for app.js.' },
+        { kind: 'hop', from: 'page', to: 'cache', msg: 'a-req', lines: ['GET /app.js'], carry: null, tone: 'ink' },
+      ];
+
+      if (fresh) {
+        out.push(
+          { kind: 'step', text: `The browser has a copy. It is ${fmtAge(age)} old, under 5 minutes, so it is fresh. A fresh copy is used without asking the server.` },
+          { kind: 'set', apply: () => $('[data-msg="b-idle"]').classList.add('is-on') },
+          { kind: 'wait', ms: GAP_MS },
+          { kind: 'hop', from: 'cache', to: 'page', msg: 'a-res', lines: ['copy v1'], carry: 'v1', tone: changed ? 'wrong' : 'fresh' },
+          {
+            kind: 'set',
+            apply: () => {
+              if (changed) {
+                showPage('v1', 'wrong', 'shows v1 · old file');
+                verdict(fmtAge(left), 'of the old file', 'The server has v2, but nobody asked it. Every visit shows v1 until the copy turns stale.', 'wrong');
+              } else {
+                showPage('v1', 'fresh', 'shows v1');
+                verdict('0', 'requests to the server', 'The fresh copy is also the current file. This is the fastest answer possible.', 'fresh');
+              }
+            },
+          },
+          { kind: 'step', text: changed ? 'The page shows v1. The server has v2, but nobody asked it.' : 'The page shows v1. Nothing went over the network.' },
+        );
+        return out;
+      }
+
+      out.push(
+        { kind: 'step', text: `The browser has a copy. It is ${fmtAge(age)} old, so it is stale. A stale copy must be checked with the server first.` },
+        { kind: 'wait', ms: GAP_MS },
+        { kind: 'step', text: 'The browser asks: "I have v1. Is it still current?" It sends the copy\'s ETag in the If-None-Match header. An ETag is a name for one version of a file.' },
+        { kind: 'hop', from: 'cache', to: 'server', msg: 'b-req', lines: ['GET /app.js', 'If-None-Match: "v1"'], carry: null, tone: 'net' },
+        { kind: 'wait', ms: GAP_MS },
+      );
+
+      if (!changed) {
+        out.push(
+          { kind: 'step', text: 'The server still has v1. It answers 304 Not Modified. This answer has no file inside.' },
+          { kind: 'hop', from: 'server', to: 'cache', msg: 'b-res', lines: ['304 Not Modified', 'no file'], carry: '304', tone: 'net' },
+          { kind: 'set', apply: () => showCache('v1', 0, 'checked · fresh again') },
+          { kind: 'wait', ms: GAP_MS },
+          { kind: 'hop', from: 'cache', to: 'page', msg: 'a-res', lines: ['copy v1'], carry: 'v1', tone: 'fresh' },
+          {
+            kind: 'set',
+            apply: () => {
+              showPage('v1', 'fresh', 'shows v1');
+              verdict('304', 'and no file sent', 'The server only confirmed the copy. The check used the network, but the file did not travel again.', 'net');
+            },
+          },
+          { kind: 'step', text: 'The page shows v1. The copy is fresh again for 5 minutes.' },
+        );
+        return out;
+      }
+
+      out.push(
+        { kind: 'step', text: 'The server has v2, so the ETags do not match. It answers 200 OK with the new file and its ETag, "v2".' },
+        { kind: 'hop', from: 'server', to: 'cache', msg: 'b-res', lines: ['200 OK', 'ETag: "v2" + file'], carry: 'v2', tone: 'net' },
+        { kind: 'set', apply: () => showCache('v2', 0, 'new copy · fresh') },
+        { kind: 'wait', ms: GAP_MS },
+        { kind: 'hop', from: 'cache', to: 'page', msg: 'a-res', lines: ['copy v2'], carry: 'v2', tone: 'fresh' },
+        {
+          kind: 'set',
+          apply: () => {
+            showPage('v2', 'fresh', 'shows v2');
+            verdict('200', 'and the new file', 'The copy was stale, so the browser asked. The server sent v2, and the page shows the current file.', 'net');
+          },
+        },
+        { kind: 'step', text: 'The page shows v2. The browser keeps it as a new copy, fresh for 5 minutes.' },
+      );
+      return out;
+    };
+
+    const reset = () => {
+      const { age, server } = state();
+      ageOut.textContent = `${fmtAge(age)} old`;
+      stepsEl.replaceChildren();
+      clearMessages();
+      verdictEl.classList.remove('is-on');
+      packet.getAnimations().forEach((a) => a.cancel());
+      packet.hidden = true;
+      showCache('v1', age);
+      showServer(server);
+      showPage(null, null, 'waiting');
+    };
+
+    const run = async () => {
+      const id = ++runId;
+      reset();
+      const { age, server } = state();
+      const instant = reduced.matches;
+      for (const a of plan(age, server)) {
+        if (id !== runId) return;
+        if (a.kind === 'step') addStep(a.text);
+        else if (a.kind === 'set') a.apply();
+        else if (a.kind === 'wait') {
+          if (!instant) await sleep(a.ms);
+        } else {
+          if (!instant) await hop(id, a.from, a.to, a.carry, a.tone);
+          if (id !== runId) return;
+          showMessage(a.msg, a.lines, a.tone);
+        }
+      }
+      for (const li of stepsEl.children) li.classList.remove('is-now');
+    };
+
+    // Live readout while dragging; play when the visitor pauses.
+    let debounce = 0;
+    ageInput.addEventListener('input', () => {
+      runId++;
+      reset();
+      clearTimeout(debounce);
+      debounce = window.setTimeout(run, 450);
+    });
+    serverInputs.forEach((i) => i.addEventListener('change', run));
+    $('[data-replay]').addEventListener('click', run);
+
+    reset();
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          io.disconnect();
+          run();
+        }
+      },
+      { threshold: 0.6 },
+    );
+    io.observe(stage);
+  }
+</script>
+
+<style is:global>
+  /* Global because the script creates elements; every rule is nested under .sim. */
+  .sim {
+    --label: var(--diagram-size);
+    container: cache-sim / inline-size;
+    display: grid;
+    gap: var(--space-5);
+
+    @media (max-width: 62rem) {
+      gap: var(--space-4);
+    }
+
+    .defs {
+      position: absolute;
+    }
+
+    /* ---------- Controls ---------- */
+    .controls {
+      display: grid;
+      grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+      gap: var(--space-5) var(--space-6);
+      align-items: start;
+    }
+
+    .ctl {
+      margin: 0;
+      padding: 0;
+      border: 0;
+      min-width: 0;
+    }
+
+    .ctl-label {
+      display: block;
+      padding: 0;
+      color: var(--ink-2);
+      font-size: var(--text-small);
+      font-weight: 650;
+    }
+
+    .ctl-value {
+      display: block;
+      margin: var(--space-2) 0 var(--space-4);
+      font-weight: 850;
+      font-variation-settings: 'wdth' 125;
+      font-size: clamp(2.5rem, 5vw, 3.75rem);
+      line-height: 1;
+      letter-spacing: -0.02em;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .ctl-hint {
+      margin-top: var(--space-3);
+      color: var(--ink-2);
+      font-size: var(--text-small);
+    }
+
+    .track {
+      position: relative;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      height: 56px;
+    }
+
+    .zone {
+      display: flex;
+      align-items: center;
+      padding-inline: var(--space-3);
+      font-size: var(--label);
+      font-weight: 700;
+    }
+
+    .zone-fresh {
+      color: var(--good);
+      background: color-mix(in srgb, var(--good) 15%, var(--paper));
+    }
+
+    .zone-stale {
+      justify-content: flex-end;
+      color: var(--warn);
+      background: repeating-linear-gradient(
+        -45deg,
+        color-mix(in srgb, var(--warn) 24%, var(--paper)) 0 5px,
+        color-mix(in srgb, var(--warn) 7%, var(--paper)) 5px 11px
+      );
+    }
+
+    .track input {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      background: transparent;
+      appearance: none;
+      cursor: ew-resize;
+    }
+
+    .track input::-webkit-slider-runnable-track {
+      height: 100%;
+      background: transparent;
+    }
+
+    .track input::-moz-range-track {
+      height: 100%;
+      background: transparent;
+    }
+
+    .track input::-webkit-slider-thumb {
+      appearance: none;
+      width: 10px;
+      height: 76px;
+      margin-top: -10px;
+      background: var(--ink);
+      border: 0;
+      border-radius: 5px;
+    }
+
+    .track input::-moz-range-thumb {
+      width: 10px;
+      height: 76px;
+      background: var(--ink);
+      border: 0;
+      border-radius: 5px;
+    }
+
+    .track input:focus-visible {
+      outline-offset: 14px;
+    }
+
+    .scale {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      margin-top: var(--space-3);
+      color: var(--ink-2);
+      font-size: var(--label);
+    }
+
+    .scale span:last-child {
+      text-align: right;
+    }
+
+    .choices {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-4);
+      margin-top: var(--space-4);
+    }
+
+    .choice {
+      position: relative;
+      display: grid;
+      grid-template-columns: auto 1fr;
+      grid-template-areas: 'glyph main' 'glyph sub';
+      column-gap: var(--space-3);
+      align-items: center;
+      padding-bottom: var(--space-3);
+      color: var(--ink-3);
+      cursor: pointer;
+      transition: color 0.2s ease;
+    }
+
+    .choice input {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      margin: 0;
+      cursor: pointer;
+    }
+
+    .choice::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 2px;
+      background: var(--faint);
+      transition: height 0.2s ease, background 0.2s ease;
+    }
+
+    .choice:has(input:checked) {
+      color: var(--ink);
+    }
+
+    .choice:has(input:checked)::after {
+      height: 6px;
+      background: var(--ink);
+    }
+
+    .choice:has(input:focus-visible) {
+      outline: 3px solid var(--net);
+      outline-offset: 6px;
+    }
+
+    .choice-glyph {
+      grid-area: glyph;
+      fill: currentColor;
+    }
+
+    .choice-main {
+      grid-area: main;
+      font-weight: 850;
+      font-variation-settings: 'wdth' 125;
+      font-size: 2rem;
+      line-height: 1;
+    }
+
+    .choice-sub {
+      grid-area: sub;
+      font-size: var(--text-small);
+      color: var(--ink-2);
+    }
+
+    /* ---------- Stage ---------- */
+    .stage-wrap {
+      margin: 0;
+    }
+
+    .stage {
+      position: relative;
+      display: grid;
+      grid-template-columns: auto minmax(8rem, 1fr) auto minmax(13rem, 1.5fr) auto;
+      column-gap: var(--space-3);
+      row-gap: var(--space-5);
+      font-size: var(--label);
+      line-height: var(--diagram-leading);
+    }
+
+    .zone-label {
+      grid-row: 1;
+      padding-bottom: var(--space-2);
+      color: var(--ink-2);
+      font-size: var(--label);
+      background: linear-gradient(var(--ink-3), var(--ink-3)) bottom / 100% 1px no-repeat;
+    }
+
+    .zone-browser {
+      grid-column: 1 / 4;
+    }
+
+    .zone-network {
+      grid-column: 4 / 6;
+    }
+
+    .station {
+      grid-row: 2;
+      display: grid;
+      justify-items: center;
+      align-content: start;
+      gap: var(--space-4);
+      width: 12rem;
+      text-align: center;
+    }
+
+    .draw {
+      position: relative;
+      display: grid;
+      place-items: center;
+      height: 140px;
+    }
+
+    .draw > * {
+      grid-area: 1 / 1;
+    }
+
+    .draw-page { width: 180px; }
+    .draw-cache { width: 140px; }
+    .draw-server { width: 96px; }
+
+    .art {
+      width: 100%;
+      height: 100%;
+      overflow: visible;
+    }
+
+    .draw-page .art {
+      height: 116px;
+    }
+
+    .content {
+      display: grid;
+      place-items: center;
+    }
+
+    .draw-page .content {
+      margin-top: 22px;
+    }
+
+    .frame {
+      fill: none;
+      stroke: var(--ink);
+      stroke-width: 3;
+      vector-effect: non-scaling-stroke;
+      transition: stroke 0.3s ease;
+    }
+
+    .frame.thin {
+      stroke-width: 2;
+      stroke: var(--ink-3);
+    }
+
+    .fill {
+      fill: var(--ink);
+    }
+
+    .station[data-tone='wrong'] .draw-page .frame {
+      stroke: var(--bad);
+      stroke-width: 5;
+    }
+
+    .dial-track {
+      fill: none;
+      stroke: var(--faint);
+      stroke-width: 12;
+    }
+
+    .dial {
+      fill: none;
+      stroke: var(--good);
+      stroke-width: 12;
+      stroke-linecap: round;
+      transform: rotate(-90deg);
+      transform-origin: 70px 70px;
+      transition: stroke-dasharray 0.8s cubic-bezier(.3,0,.2,1), stroke 0.3s ease;
+    }
+
+    .station[data-fresh='false'] .dial {
+      opacity: 0;
+    }
+
+    .station[data-fresh='false'] .dial-track {
+      stroke: var(--warn);
+      stroke-dasharray: 4 6;
+      stroke-width: 4;
+    }
+
+    .file {
+      display: grid;
+      justify-items: center;
+      gap: 2px;
+    }
+
+    .glyph {
+      fill: currentColor;
+    }
+
+    .draw .glyph {
+      width: var(--glyph, 40px);
+      height: var(--glyph, 40px);
+    }
+
+    .file-label {
+      font-weight: 800;
+      font-size: var(--label);
+      line-height: 1;
+    }
+
+    .station[data-tone='wrong'] .file { color: var(--bad); }
+
+    .wait-dots {
+      display: flex;
+      gap: 6px;
+    }
+
+    .wait-dots i {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--ink-3);
+    }
+
+    .st-text {
+      display: grid;
+      gap: 2px;
+    }
+
+    .st-name {
+      font-weight: 750;
+    }
+
+    .st-status,
+    .st-meta {
+      color: var(--ink-2);
+    }
+
+    .st-meta code {
+      font-size: var(--label);
+    }
+
+    .st-status[data-tone='fresh'] { color: var(--good); }
+    .st-status[data-tone='stale'] { color: var(--warn); }
+    .st-status[data-tone='wrong'] { color: var(--bad); font-weight: 700; }
+
+    /* Wires */
+    .wire {
+      grid-row: 2;
+      position: relative;
+      height: 140px;
+      min-width: 0;
+    }
+
+    .wire .line {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 50%;
+      height: 3px;
+      margin-top: -1.5px;
+      background: var(--ink-3);
+      transition: background 0.3s ease;
+    }
+
+    .wire.is-used .line {
+      background: var(--ink);
+    }
+
+    .wire-b .line {
+      background: repeating-linear-gradient(90deg, var(--ink-3) 0 10px, transparent 10px 18px);
+    }
+
+    .wire-b.is-used .line {
+      background: repeating-linear-gradient(90deg, var(--net) 0 10px, transparent 10px 18px);
+    }
+
+    .msg {
+      position: absolute;
+      left: 0;
+      right: 0;
+      display: grid;
+      justify-items: center;
+      gap: 2px;
+      font-family: var(--font-code);
+      font-size: var(--label);
+      text-align: center;
+      opacity: 0;
+      transform: translateY(6px);
+      transition: opacity 0.35s ease, transform 0.35s ease;
+    }
+
+    .msg.is-on {
+      opacity: 1;
+      transform: none;
+    }
+
+    .msg[data-tone='net'] { color: var(--net); }
+    .msg[data-tone='fresh'] { color: var(--good); }
+    .msg[data-tone='wrong'] { color: var(--bad); }
+
+    .msg-req,
+    .msg-idle {
+      bottom: calc(50% + 14px);
+    }
+
+    .msg-res {
+      top: calc(50% + 14px);
+    }
+
+    .msg-idle {
+      font-family: var(--font-body);
+      color: var(--ink-2);
+    }
+
+    .msg-line {
+      white-space: nowrap;
+    }
+
+    .arrow::before {
+      font-family: var(--font-body);
+      font-weight: 800;
+      margin-right: 0.45em;
+    }
+
+    .arrow-fwd::before { content: '→'; }
+    .arrow-back::before { content: '←'; }
+
+    /* The travelling light */
+    .packet {
+      --angle: 0deg;
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: 2;
+      width: 0;
+      height: 0;
+      pointer-events: none;
+      color: var(--ink);
+    }
+
+    .packet[data-tone='net'] { color: var(--net); }
+    .packet[data-tone='fresh'] { color: var(--good); }
+    .packet[data-tone='wrong'] { color: var(--bad); }
+
+    .tail {
+      position: absolute;
+      top: -2.5px;
+      right: 0;
+      width: 90px;
+      height: 5px;
+      border-radius: 3px;
+      background: linear-gradient(90deg, transparent, currentColor);
+      transform-origin: right center;
+      transform: rotate(var(--angle));
+      opacity: 0.55;
+    }
+
+    .head {
+      position: absolute;
+      left: 0;
+      top: 0;
+      display: grid;
+      place-items: center;
+      transform: translate(-50%, -50%);
+    }
+
+    .packet[data-shape='dot'] .head {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: currentColor;
+      box-shadow: 0 0 0 6px color-mix(in srgb, currentColor 22%, transparent);
+    }
+
+    .packet[data-shape='doc'] .head {
+      min-width: 52px;
+      padding: 6px 8px;
+      border-radius: 6px;
+      background: currentColor;
+      box-shadow: 0 0 0 6px color-mix(in srgb, currentColor 20%, transparent);
+    }
+
+    .packet[data-shape='doc'] .head > * {
+      color: var(--paper);
+    }
+
+    .packet .file {
+      grid-auto-flow: column;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* ---------- Outcome ---------- */
+    .outcome {
+      display: grid;
+      justify-items: center;
+      gap: var(--space-6);
+      margin-top: var(--space-3);
+    }
+
+    .verdict {
+      display: grid;
+      grid-template-columns: auto minmax(0, 28rem);
+      grid-template-areas: 'big unit' 'big text';
+      align-content: center;
+      align-items: end;
+      column-gap: var(--space-5);
+      min-height: 10rem;
+      opacity: 0;
+      transform: translateY(16px);
+      transition: opacity 0.6s ease, transform 0.6s cubic-bezier(.3,0,.2,1);
+    }
+
+    .verdict.is-on {
+      opacity: 1;
+      transform: none;
+    }
+
+    .v-big {
+      grid-area: big;
+      align-self: center;
+      font-weight: 850;
+      font-variation-settings: 'wdth' 125;
+      font-size: clamp(4.5rem, 11vw, 10rem);
+      line-height: 0.88;
+      letter-spacing: -0.04em;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .verdict[data-tone='fresh'] .v-big { color: var(--good); }
+    .verdict[data-tone='wrong'] .v-big { color: var(--bad); }
+    .verdict[data-tone='net'] .v-big { color: var(--net); }
+
+    .v-unit {
+      grid-area: unit;
+      font-weight: 800;
+      font-variation-settings: 'wdth' 112;
+      font-size: clamp(1.5rem, 3.4vw, 2.5rem);
+      line-height: 1.1;
+      letter-spacing: -0.01em;
+    }
+
+    .v-text {
+      grid-area: text;
+      align-self: start;
+      margin-top: var(--space-2);
+      color: var(--ink-2);
+      font-size: clamp(1.125rem, 1.6vw, 1.3rem);
+      text-wrap: pretty;
+    }
+
+    .steps {
+      display: grid;
+      gap: var(--space-3);
+      max-width: 40rem;
+      width: 100%;
+      padding: 0;
+      list-style: none;
+      text-align: left;
+    }
+
+    .steps li {
+      display: grid;
+      grid-template-columns: 2.25rem 1fr;
+      color: var(--ink-2);
+      font-size: var(--text-small);
+      animation: step-in 0.4s ease both;
+    }
+
+    .steps li.is-now {
+      color: var(--ink);
+    }
+
+    .step-n {
+      font-weight: 850;
+      font-variation-settings: 'wdth' 125;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .replay {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-2);
+      min-height: 48px;
+      padding: 0 var(--space-4);
+      border: 0;
+      border-radius: 24px;
+      background: var(--ink);
+      color: var(--paper);
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.15s ease;
+    }
+
+    .replay:active {
+      transform: scale(0.97);
+    }
+
+    /* ---------- Phones and narrow windows ----------
+       Switch on the simulator's own width, not the window's: the wide stage
+       needs about 62rem, and the page around it may be narrower. */
+    @container cache-sim (max-width: 62rem) {
+
+      .controls {
+        grid-template-columns: 1fr;
+        gap: var(--space-4);
+      }
+
+      .ctl-value {
+        font-size: 2.25rem;
+        margin: var(--space-1) 0 var(--space-3);
+      }
+
+      .track {
+        height: 44px;
+      }
+
+      .track input::-webkit-slider-thumb {
+        height: 60px;
+        margin-top: -8px;
+      }
+
+      .track input::-moz-range-thumb {
+        height: 60px;
+      }
+
+      .choices {
+        margin-top: var(--space-2);
+      }
+
+      .choice-glyph {
+        width: 28px;
+        height: 28px;
+      }
+
+      .zone-label {
+        margin-top: var(--space-3);
+      }
+
+      .outcome {
+        justify-items: stretch;
+      }
+
+      .stage {
+        grid-template-columns: 1fr;
+        row-gap: 0;
+      }
+
+      .zone-label {
+        grid-row: auto;
+        grid-column: 1;
+        margin-bottom: var(--space-4);
+      }
+
+      .zone-network {
+        display: none;
+      }
+
+      .station {
+        grid-row: auto;
+        grid-template-columns: 88px 1fr;
+        justify-items: start;
+        align-items: center;
+        width: auto;
+        column-gap: var(--space-4);
+        text-align: left;
+      }
+
+      .draw {
+        --glyph: 22px;
+        width: 88px;
+        height: 76px;
+        justify-self: center;
+      }
+
+      .draw-page .art { height: 66px; }
+      .draw-page .content { margin-top: 12px; }
+      .draw-cache .art { width: 76px; height: 76px; }
+      .draw-server .art { width: 54px; height: 76px; }
+      .draw-server .frame.thin { display: none; }
+
+      .wire {
+        grid-row: auto;
+        height: auto;
+        min-height: 6rem;
+        display: grid;
+        align-content: center;
+        gap: var(--space-2);
+        padding: var(--space-3) 0 var(--space-3) calc(88px + var(--space-4));
+      }
+
+      .wire .line {
+        left: 42.5px;
+        right: auto;
+        top: 0;
+        bottom: 0;
+        width: 3px;
+        height: auto;
+        margin: 0;
+      }
+
+      .wire-b .line {
+        background: repeating-linear-gradient(180deg, var(--ink-3) 0 10px, transparent 10px 18px);
+      }
+
+      .wire-b.is-used .line {
+        background: repeating-linear-gradient(180deg, var(--net) 0 10px, transparent 10px 18px);
+      }
+
+      .wire-b::before {
+        content: 'Over the network';
+        color: var(--ink-2);
+      }
+
+      .msg {
+        position: static;
+        justify-items: start;
+        text-align: left;
+      }
+
+      .msg:not(.is-on):empty,
+      .msg-idle:not(.is-on) {
+        display: none;
+      }
+
+      .msg-line {
+        white-space: normal;
+        overflow-wrap: anywhere;
+      }
+
+      .arrow-fwd::before { content: '↓'; }
+      .arrow-back::before { content: '↑'; }
+
+      .tail { width: 60px; }
+
+      .verdict {
+        grid-template-columns: 1fr;
+        grid-template-areas: 'big' 'unit' 'text';
+        justify-items: start;
+        min-height: 0;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .msg,
+      .verdict,
+      .dial,
+      .frame,
+      .choice,
+      .choice::after {
+        transition: none;
+      }
+
+      .steps li {
+        animation: none;
+      }
+    }
+  }
+
+  @keyframes step-in {
+    from { opacity: 0; transform: translateY(8px); }
+  }
+</style>

@@ -1,0 +1,149 @@
+---
+import Base from './Base.astro';
+import LocalNav from '../components/LocalNav.astro';
+import { nextGuide, stateLabel } from '../data/guides';
+
+const { frontmatter } = Astro.props;
+const next = nextGuide(frontmatter.number);
+---
+
+<Base title={frontmatter.title} description={frontmatter.description}>
+  <LocalNav title={frontmatter.title} items={frontmatter.nav ?? []} />
+  <main data-pagefind-body>
+    <header class="guide-head" id="top">
+      <p class="guide-number" aria-hidden="true">{frontmatter.number}</p>
+      <h1 class="guide-title">{frontmatter.title}</h1>
+      <p class="guide-lede">{frontmatter.lede ?? frontmatter.description}</p>
+    </header>
+    <div class="guide-body">
+      <slot />
+    </div>
+  </main>
+  {
+    next && (
+      <footer class="guide-end">
+        <p class="end-label">Next in the study order</p>
+        {next.href ? (
+          <a class="end-next" href={next.href}>
+            <span class="end-n">{next.number}</span> {next.title}
+          </a>
+        ) : (
+          <p class="end-next is-off">
+            <span class="end-n">{next.number}</span> {next.title}
+            <span class="end-state">{stateLabel[next.state]}</span>
+          </p>
+        )}
+      </footer>
+    )
+  }
+</Base>
+
+<style>
+  .guide-head {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas: 'n title' 'n lede';
+    column-gap: var(--space-5);
+    align-items: end;
+    max-width: var(--page-max);
+    margin-inline: auto;
+    padding: var(--space-6) var(--gutter) var(--space-4);
+  }
+
+  .guide-number {
+    grid-area: n;
+    font-weight: 850;
+    font-variation-settings: 'wdth' 125;
+    font-size: clamp(5rem, 15vw, 12rem);
+    line-height: 0.78;
+    letter-spacing: -0.04em;
+  }
+
+  .guide-title {
+    grid-area: title;
+    font-weight: 850;
+    font-variation-settings: 'wdth' 118;
+    font-size: clamp(2.25rem, 5vw, 4.5rem);
+    line-height: 0.98;
+    letter-spacing: -0.025em;
+  }
+
+  .guide-lede {
+    grid-area: lede;
+    margin-top: var(--space-3);
+    max-width: 40rem;
+    color: var(--ink-2);
+    font-size: clamp(1.125rem, 1.6vw, 1.375rem);
+    line-height: 1.4;
+  }
+
+  @media (max-width: 40rem) {
+    .guide-head {
+      grid-template-columns: 1fr;
+      grid-template-areas: 'n' 'title' 'lede';
+    }
+
+    .guide-title {
+      margin-top: var(--space-3);
+    }
+  }
+
+  .guide-body :global(.map-section) {
+    max-width: var(--page-max);
+    margin-inline: auto;
+    padding: var(--space-5) var(--gutter) var(--space-6);
+  }
+
+  .guide-body :global(.map-section > h2) {
+    font-weight: 850;
+    font-variation-settings: 'wdth' 118;
+    font-size: clamp(2rem, 4.5vw, 3.5rem);
+    line-height: 1;
+    letter-spacing: -0.02em;
+  }
+
+  .guide-body :global(.map-section > p) {
+    max-width: var(--measure);
+    margin: var(--space-3) 0 var(--space-5);
+    color: var(--ink-2);
+  }
+
+  .guide-end {
+    max-width: var(--page-max);
+    margin-inline: auto;
+    padding: var(--space-7) var(--gutter);
+  }
+
+  .end-label {
+    color: var(--ink-2);
+    font-size: var(--text-small);
+  }
+
+  .end-next {
+    display: block;
+    margin-top: var(--space-2);
+    font-weight: 850;
+    font-variation-settings: 'wdth' 118;
+    font-size: clamp(2rem, 5vw, 4rem);
+    line-height: 1;
+    letter-spacing: -0.02em;
+    text-decoration: none;
+  }
+
+  .end-next.is-off {
+    color: var(--ink-3);
+  }
+
+  .end-n {
+    font-variation-settings: 'wdth' 125;
+  }
+
+  .end-state {
+    display: block;
+    margin-top: var(--space-3);
+    font-size: var(--text-small);
+    font-weight: 500;
+    font-variation-settings: 'wdth' 100;
+    letter-spacing: 0;
+  }
+</style>

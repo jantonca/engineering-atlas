@@ -1,0 +1,233 @@
+---
+// Guide navigation that stays at the top while reading.
+// Lists only sections that exist on the page.
+interface Item {
+  id: string;
+  label: string;
+  n?: string;
+}
+
+interface Props {
+  title: string;
+  items: Item[];
+}
+
+const { title, items } = Astro.props;
+---
+
+<nav class="localnav" aria-label="In this guide" data-localnav>
+  <div class="ln-inner">
+    <a class="ln-title" href="#top">{title}</a>
+    <ul class="ln-list">
+      {
+        items.map((it) => (
+          <li>
+            <a href={`#${it.id}`} data-ln-link={it.id} data-ln-label={it.n ? `${it.n} · ${it.label}` : it.label}>
+              {it.n && <span class="ln-n">{it.n}</span>}
+              {it.label}
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+    <button class="ln-toggle" type="button" popovertarget="ln-sheet">
+      <span data-ln-current>Contents</span>
+      <svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true">
+        <path d="M2 4.5 6 8.5 10 4.5" fill="none" stroke="currentColor" stroke-width="2"></path>
+      </svg>
+    </button>
+  </div>
+</nav>
+
+<div id="ln-sheet" class="ln-sheet" popover>
+  <ul>
+    {
+      items.map((it) => (
+        <li>
+          <a href={`#${it.id}`} data-ln-link={it.id} data-ln-label={it.n ? `${it.n} · ${it.label}` : it.label}>
+            {it.n && <span class="ln-n">{it.n}</span>}
+            {it.label}
+          </a>
+        </li>
+      ))
+    }
+  </ul>
+</div>
+
+<script>
+  const nav = document.querySelector<HTMLElement>('[data-localnav]');
+  const sheet = document.querySelector<HTMLElement>('#ln-sheet');
+  const current = nav?.querySelector<HTMLElement>('[data-ln-current]');
+  const links = [...document.querySelectorAll<HTMLAnchorElement>('[data-ln-link]')];
+  const ids = [...new Set(links.map((l) => l.dataset.lnLink!))];
+  const sections = ids.map((id) => document.getElementById(id)).filter(Boolean) as HTMLElement[];
+
+  const setActive = (id: string | null) => {
+    for (const l of links) {
+      if (l.dataset.lnLink === id) l.setAttribute('aria-current', 'true');
+      else l.removeAttribute('aria-current');
+    }
+    const active = links.find((l) => l.dataset.lnLink === id);
+    if (current) current.textContent = active?.dataset.lnLabel || 'Contents';
+  };
+
+  // The active section is the last one whose top has passed the upper third of the screen.
+  const update = () => {
+    const line = window.innerHeight * 0.33;
+    let active: string | null = null;
+    for (const s of sections) if (s.getBoundingClientRect().top <= line) active = s.id;
+    setActive(active);
+  };
+
+  let ticking = false;
+  window.addEventListener(
+    'scroll',
+    () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        update();
+        ticking = false;
+      });
+    },
+    { passive: true },
+  );
+  update();
+
+  sheet?.addEventListener('click', (e) => {
+    if ((e.target as HTMLElement).closest('a')) sheet.hidePopover();
+  });
+</script>
+
+<style>
+  .localnav {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: color-mix(in srgb, var(--paper) 86%, transparent);
+    backdrop-filter: saturate(1.6) blur(18px);
+    -webkit-backdrop-filter: saturate(1.6) blur(18px);
+    box-shadow: 0 1px 0 color-mix(in srgb, var(--ink) 12%, transparent);
+  }
+
+  .ln-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+    max-width: var(--page-max);
+    height: var(--localnav-h);
+    margin-inline: auto;
+    padding-inline: var(--gutter);
+  }
+
+  .ln-title {
+    font-weight: 800;
+    font-variation-settings: 'wdth' 112;
+    font-size: 1.0625rem;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  .ln-list {
+    display: flex;
+    gap: var(--space-4);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .ln-list a,
+  .ln-sheet a {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.4em;
+    padding-block: var(--space-2);
+    color: var(--ink-2);
+    font-size: var(--text-small);
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  .ln-list a:hover,
+  .ln-list a[aria-current],
+  .ln-sheet a[aria-current] {
+    color: var(--ink);
+  }
+
+  .ln-list a[aria-current] {
+    box-shadow: inset 0 -2px 0 var(--ink);
+  }
+
+  .ln-n {
+    font-weight: 850;
+    font-variation-settings: 'wdth' 125;
+  }
+
+  .ln-toggle {
+    display: none;
+    align-items: center;
+    gap: var(--space-2);
+    min-height: 44px;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--ink);
+    font-size: var(--text-small);
+    cursor: pointer;
+  }
+
+  .ln-toggle span {
+    max-width: 45vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .ln-sheet {
+    position: fixed;
+    inset: var(--localnav-h) 0 auto 0;
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: var(--space-2) var(--gutter) var(--space-4);
+    border: 0;
+    background: var(--paper);
+    color: var(--ink);
+    box-shadow: 0 24px 48px -24px rgb(0 0 0 / 0.35);
+  }
+
+  .ln-sheet::backdrop {
+    background: rgb(0 0 0 / 0.2);
+  }
+
+  .ln-sheet ul {
+    display: grid;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .ln-sheet a {
+    min-height: 44px;
+    align-items: center;
+    font-size: var(--text);
+  }
+
+  @media (max-width: 62rem) {
+    .ln-title {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-size: var(--text-small);
+    }
+
+    .ln-list {
+      display: none;
+    }
+
+    .ln-toggle {
+      display: inline-flex;
+    }
+  }
+</style>

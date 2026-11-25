@@ -1,0 +1,105 @@
+---
+// One interview question. Recall first: the question alone, then the key points
+// to check yourself against, then a real case to answer, then the full answer.
+// Without JavaScript every part is visible, and the answer sits in a native disclosure.
+import BugArt, { type Art } from './web-platform/BugArt.astro';
+
+interface Props {
+  n: string;
+  art: Art;
+  question: string;
+  scenario: string;
+  options: string[];
+  correct: number;
+  why: string;
+  myth: string;
+  points: string[];
+  /** A follow-up for senior practice: which evidence would confirm the diagnosis? */
+  evidence?: { question: string; answer: string };
+  href?: string;
+}
+
+const { n, art, question, scenario, options, correct, why, myth, points, evidence, href } = Astro.props;
+const letters = 'ABCD';
+---
+
+<li class="qz-item" data-qz-item data-n={n} data-correct={correct} data-stage="ask" aria-labelledby={`qz-${n}`}>
+  <div class="qz-side" aria-hidden="true">
+    <span class="qz-n">{n}</span>
+    <BugArt art={art} />
+  </div>
+
+  <div class="qz-main">
+    <h3 class="qz-question" id={`qz-${n}`} tabindex="-1">{question}</h3>
+
+    <div class="qz-actions" data-ask>
+      <button type="button" class="qz-btn" data-check>Check yourself</button>
+      <button type="button" class="qz-btn is-quiet" data-skip>Skip to the case</button>
+    </div>
+
+    <div class="qz-recall" data-recall>
+      <fieldset class="qz-points">
+        <legend>A good answer covers these points. Tick the ones yours covered.</legend>
+        {
+          points.map((p) => (
+            <label class="qz-point">
+              <input type="checkbox" />
+              <span>{p}</span>
+            </label>
+          ))
+        }
+      </fieldset>
+      <button type="button" class="qz-btn" data-to-case>Now try a real case</button>
+    </div>
+
+    <div class="qz-case" data-case>
+      <p class="qz-step-label">A real case</p>
+      <p class="qz-scenario" tabindex="-1">{scenario}</p>
+      <div class="qz-options" role="group" aria-label={`Answers for the case in question ${n}`}>
+        {
+          options.map((o, i) => (
+            <button type="button" class="qz-option" data-i={i} disabled>
+              <span class="qz-letter" aria-hidden="true">{letters[i]}</span>
+              <span class="qz-text">{o}</span>
+              <span class="qz-mark" data-mark />
+            </button>
+          ))
+        }
+      </div>
+
+      <div class="qz-feedback" data-feedback tabindex="-1" hidden>
+        <p class="qz-verdict" data-verdict></p>
+        <p>{why}</p>
+        <p class="qz-myth"><span class="qz-myth-label">A common mistake.</span> {myth}</p>
+      </div>
+
+      <details class="qz-full" data-full>
+        <summary>Show the full answer</summary>
+        <div class="qz-nojs" data-pagefind-ignore>
+          <p><strong>Right answer: {letters[correct]}.</strong> {why}</p>
+          <p class="qz-myth"><span class="qz-myth-label">A common mistake.</span> {myth}</p>
+        </div>
+        <div class="qz-answer"><slot /></div>
+        {href ? <a class="qz-chapter" href={href}>Chapter {n} explains this with a simulator ↑</a> : <p class="qz-chapter is-off">Chapter {n} is not written yet.</p>}
+      </details>
+
+      {
+        evidence && (
+          <div class="qz-evidence" data-evidence>
+            <p class="qz-step-label">One step further</p>
+            <p class="qz-evidence-q">{evidence.question}</p>
+            <details class="qz-full">
+              <summary>Show an answer</summary>
+              <p class="qz-answer">{evidence.answer}</p>
+            </details>
+          </div>
+        )
+      }
+    </div>
+
+    <label class="qz-flag">
+      <input type="checkbox" data-flag />
+      <span>Ask me again later</span>
+    </label>
+  </div>
+</li>

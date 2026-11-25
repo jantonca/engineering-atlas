@@ -1,0 +1,33 @@
+<button class="theme-toggle" type="button" data-theme-toggle>
+  <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+    <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"></circle>
+    <path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"></path>
+  </svg>
+  <span class="theme-label" data-theme-label>Dark theme</span>
+</button>
+
+<script>
+  const button = document.querySelector<HTMLButtonElement>('[data-theme-toggle]');
+  const label = button?.querySelector('[data-theme-label]');
+  const media = window.matchMedia('(prefers-color-scheme: dark)');
+
+  const current = () =>
+    (document.documentElement.dataset.theme as 'light' | 'dark' | undefined) ??
+    (media.matches ? 'dark' : 'light');
+
+  const sync = () => {
+    if (label) label.textContent = current() === 'dark' ? 'Light theme' : 'Dark theme';
+  };
+
+  button?.addEventListener('click', () => {
+    const next = current() === 'dark' ? 'light' : 'dark';
+    document.documentElement.dataset.theme = next;
+    try {
+      localStorage.setItem('theme', next);
+    } catch {}
+    sync();
+  });
+
+  media.addEventListener('change', sync);
+  sync();
+</script>

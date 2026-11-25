@@ -1,0 +1,411 @@
+---
+// Out-of-order responses: a search for "ca", then "cat".
+// The visitor sets how slow the first request is and picks a guard.
+import '../../styles/sim.css';
+---
+
+<div class="sx race" data-race>
+  <div class="sx-controls">
+    <div class="sx-ctl">
+      <label class="sx-label" for="race-a">How long does the request for “ca” take?</label>
+      <output class="sx-value" for="race-a" data-a-out>900 ms</output>
+      <div class="sx-range">
+        <span class="sx-range-zone is-bad" style="left: 50%" aria-hidden="true">arrives last</span>
+        <input id="race-a" type="range" min="100" max="1100" step="50" value="900" aria-describedby="race-a-hint" data-a />
+      </div>
+      <div class="sx-scale" aria-hidden="true">
+        <span style="left: 0">100 ms</span>
+        <span style="left: 50%; transform: translateX(-50%)">600 ms</span>
+        <span style="right: 0">1100 ms</span>
+      </div>
+      <p id="race-a-hint" class="sx-hint">The request for “cat” always takes 300 ms, so it arrives at 600 ms.</p>
+    </div>
+
+    <fieldset class="sx-ctl">
+      <legend class="sx-label">How does the page handle responses?</legend>
+      <div class="sx-choices">
+        <label class="sx-choice">
+          <input type="radio" name="race-guard" value="none" checked data-guard />
+          <span class="sx-choice-main">No guard</span>
+          <span class="sx-choice-sub">show every response</span>
+        </label>
+        <label class="sx-choice">
+          <input type="radio" name="race-guard" value="ignore" data-guard />
+          <span class="sx-choice-main">Ignore old</span>
+          <span class="sx-choice-sub">use only the latest request</span>
+        </label>
+        <label class="sx-choice">
+          <input type="radio" name="race-guard" value="abort" data-guard />
+          <span class="sx-choice-main">Cancel old</span>
+          <span class="sx-choice-sub">stop it with AbortController</span>
+        </label>
+      </div>
+    </fieldset>
+  </div>
+
+  <div class="sx-stage">
+    <div class="sx-side">
+      <div class="sx-screen" data-screen>
+        <p class="sx-screen-name">A search page</p>
+        <p class="race-box"><span data-typed></span><span class="race-caret" aria-hidden="true"></span></p>
+        <ul class="race-results" data-results></ul>
+      </div>
+      <div class="sx-bar">
+        <button class="sx-btn" type="button" data-run>
+          <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M5 3 17 10 5 17Z" fill="currentColor"></path></svg>
+          Play again
+        </button>
+        <p class="sx-note">Slow motion: 3 times slower than real time.</p>
+      </div>
+    </div>
+
+    <figure class="sx-tl" data-tl>
+      <div class="sx-lane">
+        <p class="sx-lane-name">You type</p>
+        <div class="sx-track" data-track="type"></div>
+      </div>
+      <div class="sx-lane">
+        <p class="sx-lane-name">Request 1, for “ca”</p>
+        <div class="sx-track is-tall" data-track="a"></div>
+      </div>
+      <div class="sx-lane">
+        <p class="sx-lane-name">Request 2, for “cat”</p>
+        <div class="sx-track is-tall" data-track="b"></div>
+      </div>
+      <div class="sx-lane">
+        <p class="sx-lane-name">The page shows</p>
+        <div class="sx-track is-tall" data-track="screen"></div>
+      </div>
+      <div class="sx-axis" aria-hidden="true">
+        <span style="left: 0">0</span><span style="left: 25%">300</span><span style="left: 50%">600</span>
+        <span style="left: 75%">900</span><span style="left: 100%">1200 ms</span>
+      </div>
+      <span class="sx-playhead" data-playhead hidden></span>
+      <ul class="sx-legend" aria-hidden="true">
+        <li><span class="sx-key is-net"></span>request on the network</li>
+        <li><span class="sx-key is-good"></span>results match the search</li>
+        <li><span class="sx-key"></span>older results, newer ones loading</li>
+        <li><span class="sx-key is-bad"></span>wrong results</li>
+      </ul>
+      <figcaption class="visually-hidden">Timeline of typing, two requests and what the page shows. The numbered steps below describe it.</figcaption>
+    </figure>
+  </div>
+
+
+  <div class="sx-verdict" aria-live="polite" data-verdict>
+    <p class="sx-big"></p>
+    <p class="sx-unit"></p>
+    <p class="sx-text"></p>
+  </div>
+  <ol class="sx-steps" data-steps></ol>
+</div>
+
+<script>
+  import { el, fitLabel, keepInside, onResize, place, play, steps as makeSteps, verdict as makeVerdict, whenVisible } from '../../scripts/sim';
+
+  const SPAN = 1200;
+  const SECOND_SENT = 300;
+  const SECOND_TAKES = 300;
+  const SECOND_ARRIVES = SECOND_SENT + SECOND_TAKES;
+  const SLOW = 3;
+  const RESULTS: Record<string, string[]> = {
+    ca: ['Cake', 'Canoe', 'Carrot'],
+    cat: ['Cat bed', 'Cat food', 'Cat toys'],
+  };
+
+  type Guard = 'none' | 'ignore' | 'abort';
+  type Query = 'ca' | 'cat';
+
+  // Order at the same moment: a response that arrives at 300 ms is handled before the
+  // second search starts. Guards, steps and screen all follow this rule.
+  const simulate = (a: number, guard: Guard) => {
+    const aborted = guard === 'abort' && a > SECOND_SENT;
+    const ignored = guard === 'ignore' && a > SECOND_SENT;
+    // One ordered list of arrivals drives the screen, the steps and the verdict.
+    // On a tie, response 1 is handled first because its request was sent first.
+    const arrivals: { t: number; q: Query }[] = [];
+    if (!aborted) arrivals.push({ t: a, q: 'ca' });
+    arrivals.push({ t: SECOND_ARRIVES, q: 'cat' });
+    arrivals.sort((x, y) => x.t - y.t); // stable, so the tie order above is kept
+    const applied = arrivals.filter((ev) => !(ignored && ev.q === 'ca'));
+    // What the page shows, as segments over time.
+    const segs: { start: number; end: number; q: Query; tone: 'good' | 'old' | 'bad' }[] = [];
+    applied.forEach((ev, i) => {
+      const end = applied[i + 1]?.t ?? SPAN;
+      if (ev.q === 'cat') segs.push({ start: ev.t, end, q: 'cat', tone: 'good' });
+      else if (ev.t > SECOND_ARRIVES) segs.push({ start: ev.t, end, q: 'ca', tone: 'bad' });
+      else if (ev.t < SECOND_SENT) {
+        segs.push({ start: ev.t, end: Math.min(end, SECOND_SENT), q: 'ca', tone: 'good' });
+        if (end > SECOND_SENT) segs.push({ start: SECOND_SENT, end, q: 'ca', tone: 'old' });
+      } else segs.push({ start: ev.t, end, q: 'ca', tone: 'old' });
+    });
+    const final = applied[applied.length - 1].q;
+    return { a, aborted, ignored, arrivals, applied, segs, final };
+  };
+
+  const ms = (n: number) => `${Math.round(n)} ms`;
+
+  for (const root of document.querySelectorAll<HTMLElement>('[data-race]')) {
+    const $ = <T extends Element = HTMLElement>(s: string) => root.querySelector<T>(s)!;
+    const aInput = $<HTMLInputElement>('[data-a]');
+    const guardInputs = [...root.querySelectorAll<HTMLInputElement>('[data-guard]')];
+    const tracks = {
+      type: $('[data-track="type"]'),
+      a: $('[data-track="a"]'),
+      b: $('[data-track="b"]'),
+      screen: $('[data-track="screen"]'),
+    };
+    const playhead = $('[data-playhead]');
+    const typed = $('[data-typed]');
+    const results = $('[data-results]');
+    const screen = $('[data-screen]');
+    const stepList = makeSteps($('[data-steps]'));
+    const result = makeVerdict($('[data-verdict]'));
+
+    let stop = () => {};
+    let covers: HTMLElement[] = [];
+    let stepTimes: number[] = [];
+    let sim = simulate(900, 'none');
+
+    const guard = () => (guardInputs.find((i) => i.checked)?.value ?? 'none') as Guard;
+    const pct = (t: number) => `${(t / SPAN) * 100}%`;
+
+    // Labels sit above the bar so they never cover it.
+    const tag = (track: HTMLElement, t: number, text: string, color: string) => {
+      const node = el('span', 'sx-tag', text);
+      node.style.left = pct(t);
+      node.style.color = color;
+      if (track !== tracks.type) node.style.bottom = '16px';
+      else node.style.marginLeft = t === 0 ? '14px' : '8px';
+      track.append(node);
+      keepInside(node, track);
+    };
+
+    const bar = (track: HTMLElement, start: number, end: number, cls: string) => {
+      const node = el('span', `sx-block ${cls}`);
+      node.style.height = '6px';
+      node.style.bottom = '5px';
+      place(node, start, end, SPAN);
+      track.append(node);
+      return node;
+    };
+
+    const dot = (track: HTMLElement, t: number, color: string) => {
+      const node = el('span', 'sx-dot');
+      node.style.left = pct(t);
+      node.style.background = color;
+      if (t === 0) node.style.marginLeft = '0';
+      if (track !== tracks.type) node.style.bottom = '0px';
+      track.append(node);
+    };
+
+    const draw = () => {
+      sim = simulate(Number(aInput.value), guard());
+      for (const tr of Object.values(tracks)) tr.replaceChildren();
+
+      dot(tracks.type, 0, 'var(--ink)');
+      tag(tracks.type, 0, '“ca”', 'var(--ink)');
+      dot(tracks.type, SECOND_SENT, 'var(--ink)');
+      tag(tracks.type, SECOND_SENT, '“cat”', 'var(--ink)');
+
+      if (sim.aborted) {
+        bar(tracks.a, 0, SECOND_SENT, 'is-net');
+        tag(tracks.a, SECOND_SENT, '× cancelled', 'var(--ink-2)');
+      } else {
+        bar(tracks.a, 0, sim.a, 'is-net');
+        dot(tracks.a, sim.a, 'var(--net)');
+        const late = sim.a > SECOND_ARRIVES;
+        const label = sim.ignored ? 'arrives, ignored' : late ? 'arrives last' : 'arrives';
+        const color = sim.ignored ? 'var(--ink-2)' : late ? 'var(--bad)' : 'var(--net)';
+        tag(tracks.a, sim.a, label, color);
+      }
+
+      bar(tracks.b, SECOND_SENT, SECOND_ARRIVES, 'is-net');
+      dot(tracks.b, SECOND_ARRIVES, 'var(--net)');
+      tag(tracks.b, SECOND_ARRIVES, 'arrives', 'var(--net)');
+
+      for (const s of sim.segs) {
+        const cls = s.tone === 'good' ? 'is-good' : s.tone === 'bad' ? 'is-bad' : '';
+        const node = el('span', `sx-block ${cls}`);
+        place(node, s.start, s.end, SPAN);
+        node.style.boxShadow = 'inset -2px 0 var(--paper)';
+        tracks.screen.append(node);
+        const lab = el('span', 'sx-block-label');
+        lab.style.left = pct(s.start);
+        tracks.screen.append(lab);
+        fitLabel(lab, node, [`“${s.q}” results`, `“${s.q}”`]);
+      }
+
+      covers = Object.values(tracks).map((tr) => {
+        const c = el('span', 'sx-cover');
+        tr.append(c);
+        return c;
+      });
+
+      // Text version with times. k orders events at the same moment: arrivals (0) before sends (1).
+      const events: { t: number; k: number; text: string }[] = [
+        { t: 0, k: 1, text: 'You type “ca”. The page sends request 1.' },
+        {
+          t: SECOND_SENT,
+          k: 1,
+          text: sim.aborted
+            ? 'You type “cat”. The page cancels request 1, then sends request 2.'
+            : 'You type “cat”. The page sends request 2.',
+        },
+      ];
+      // A tie only when both responses really arrive at the same moment.
+      const [first, second] = sim.arrivals;
+      const tie = !!second && first.t === second.t && !sim.ignored;
+      for (const ev of sim.arrivals) {
+        if (ev.q === 'cat') {
+          events.push({
+            t: ev.t,
+            k: 0,
+            text: tie
+              ? `Response 2 arrives at the same moment, ${ms(ev.t)}. The page handles it second and shows the “cat” results.`
+              : `Response 2 arrives at ${ms(ev.t)}. The page shows the “cat” results.`,
+          });
+        } else {
+          events.push({
+            t: ev.t,
+            k: 0,
+            text: sim.ignored
+              ? `Response 1 arrives at ${ms(ev.t)}. It is not for the latest request, so the page ignores it.`
+              : ev.t > SECOND_ARRIVES
+                ? `Response 1 arrives last, at ${ms(ev.t)}. The page shows it and replaces the “cat” results.`
+                : ev.t === SECOND_SENT
+                  ? `Response 1 arrives at ${ms(ev.t)}, just before the second search starts. The page shows the “ca” results.`
+                  : `Response 1 arrives at ${ms(ev.t)}. The page shows the “ca” results.`,
+          });
+        }
+      }
+      events.sort((x, y) => x.t - y.t || x.k - y.k); // stable: arrivals keep their order
+      stepTimes = events.map((e) => e.t);
+      stepList.set(events.map((e) => e.text));
+    };
+
+    const showScreen = (t: number) => {
+      typed.textContent = t < SECOND_SENT ? 'ca' : 'cat';
+      const shown = [...sim.applied].reverse().find((ev) => ev.t <= t);
+      results.replaceChildren(...(shown ? RESULTS[shown.q] : ['Loading…']).map((r) => el('li', '', r)));
+      const wrong = !!shown && shown.q === 'ca' && t >= SECOND_ARRIVES;
+      screen.classList.toggle('is-bad', wrong);
+      results.classList.toggle('is-old', !!shown && shown.q === 'ca' && t >= SECOND_SENT && !wrong);
+    };
+
+    let last = 0;
+    const frame = (t: number) => {
+      last = t;
+      for (const c of covers) c.style.left = pct(t);
+      playhead.hidden = false;
+      playhead.style.left = pct(t);
+      stepList.reveal(stepTimes, t);
+      showScreen(t);
+    };
+
+    const finish = () => {
+      playhead.hidden = true;
+      root.classList.add('is-done');
+      const g = guard();
+      if (sim.final === 'ca') {
+        result.show('“ca”', 'results, for a search for “cat”', 'The older request was slower. Its response arrived last and replaced the newer results. The page stays wrong until the next search.', 'bad');
+      } else if (g === 'none') {
+        result.show('“cat”', 'results. Right, by luck.', sim.a === SECOND_ARRIVES
+          ? 'Both responses arrived at 600 ms. The page handled the older one first, so the newer one replaced it. A little slower and the order flips. Try 650 ms.'
+          : 'The older response arrived first, so the newer one replaced it. Make request 1 slower than 600 ms and watch.', 'good');
+      } else if (sim.aborted) {
+        result.show('“cat”', 'results, every time', 'The page cancelled request 1 when the new search started. Its response never reached the page.', 'good');
+      } else if (sim.ignored) {
+        result.show('“cat”', 'results, every time', `Response 1 still arrived, at ${ms(sim.a)}. The page saw it was not for the latest request and ignored it.`, 'good');
+      } else {
+        result.show('“cat”', 'results', sim.a === SECOND_SENT
+          ? 'Response 1 arrived at 300 ms, just before the second search started. It was still the latest request, so there was nothing to guard against.'
+          : 'Response 1 arrived before the second search started, so there was nothing to guard against.', 'good');
+      }
+    };
+
+    const run = () => {
+      stop();
+      root.classList.remove('is-done');
+      result.hide();
+      draw();
+      stop = play(SPAN, SLOW, frame, finish);
+    };
+
+    $('[data-run]').addEventListener('click', run);
+    let debounce = 0;
+    aInput.addEventListener('input', () => {
+      $('[data-a-out]').textContent = ms(Number(aInput.value));
+      clearTimeout(debounce);
+      debounce = window.setTimeout(run, 450);
+    });
+    guardInputs.forEach((i) => i.addEventListener('change', run));
+
+    draw();
+    frame(0);
+    playhead.hidden = true;
+    onResize(root, () => {
+      draw();
+      frame(last);
+      if (last >= SPAN) playhead.hidden = true;
+    });
+    whenVisible(root.querySelector('[data-tl]')!, run);
+  }
+</script>
+
+<style is:global>
+  .race .race-box {
+    display: flex;
+    align-items: center;
+    min-height: 44px;
+    padding-inline: var(--space-3);
+    border-radius: 22px;
+    background: color-mix(in srgb, var(--ink) 7%, var(--paper));
+    font-weight: 700;
+  }
+
+  .race .race-caret {
+    width: 2px;
+    height: 1.2em;
+    margin-left: 2px;
+    background: var(--ink);
+    animation: race-blink 1s steps(1) infinite;
+  }
+
+  /* Stop blinking when the run ends, so nothing moves on a finished scene. */
+  .race.is-done .race-caret {
+    animation: none;
+  }
+
+  @keyframes race-blink {
+    50% { opacity: 0; }
+  }
+
+  .race .race-results {
+    display: grid;
+    gap: var(--space-2);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .race .race-results li {
+    padding-bottom: var(--space-2);
+    box-shadow: 0 1px 0 var(--faint);
+  }
+
+  .race .race-results.is-old {
+    color: var(--ink-3);
+  }
+
+  .race .sx-screen.is-bad .race-results {
+    color: var(--bad);
+    font-weight: 700;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .race .race-caret {
+      animation: none;
+    }
+  }
+</style>

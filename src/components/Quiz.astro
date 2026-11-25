@@ -1,0 +1,935 @@
+---
+// The guide's quiz: one question at a time, real progress, a summary at the end.
+// "Ask me again later" marks are kept in this browser only.
+interface Props {
+  id: string;
+  storageKey: string;
+}
+
+const { id, storageKey } = Astro.props;
+---
+
+<section class="quiz" id={id} aria-labelledby={`${id}-title`} data-quiz data-key={storageKey}>
+  <header class="qz-head">
+    <h2 id={`${id}-title`} class="qz-kicker">Test yourself</h2>
+    <p class="qz-title"><slot name="title" /></p>
+    <div class="qz-intro"><slot name="intro" /></div>
+  </header>
+
+  <div class="qz-practice" data-practice hidden>
+    <p data-practice-text></p>
+    <button type="button" class="qz-btn is-quiet" data-practice-go>Practise marked questions →</button>
+  </div>
+
+  <nav class="qz-progress" aria-label="Questions">
+    <ol data-progress></ol>
+  </nav>
+
+  <ol class="qz-list" data-list>
+    <slot />
+  </ol>
+
+  <div class="qz-nav" data-nav>
+    <button type="button" class="qz-btn is-quiet" data-prev>← Previous</button>
+    <p class="qz-count" data-count aria-live="polite"></p>
+    <button type="button" class="qz-btn" data-next>Next question →</button>
+  </div>
+
+  <div class="qz-summary" data-summary hidden tabindex="-1">
+    <p class="qz-score"><span data-score></span><span class="qz-of"> / <span data-total></span></span></p>
+    <p class="qz-score-unit">cases answered right</p>
+    <p class="qz-score-points" data-points></p>
+    <p class="qz-score-note" data-note></p>
+    <ol class="qz-review" data-review></ol>
+    <div class="qz-summary-actions">
+      <button type="button" class="qz-btn" data-again-flagged>Practise the ones to ask again</button>
+      <button type="button" class="qz-btn is-quiet" data-restart>Start again</button>
+    </div>
+  </div>
+
+  <div class="qz-sources"><slot name="sources" /></div>
+</section>
+
+<script>
+  const smooth = (): ScrollBehavior =>
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
+
+  for (const root of document.querySelectorAll<HTMLElement>('[data-quiz]')) {
+    const $ = <T extends Element = HTMLElement>(s: string) => root.querySelector<T>(s)!;
+    const all = [...root.querySelectorAll<HTMLElement>('[data-qz-item]')];
+    const key = `atlas:${root.dataset.key}:ask-again`;
+    const progress = $('[data-progress]');
+    const nav = $('[data-nav]');
+    const summary = $('[data-summary]');
+    const answers = new Map<string, boolean>(); // n → answered right?
+
+    const load = (): string[] => {
+      try {
+        return JSON.parse(localStorage.getItem(key) ?? '[]');
+      } catch {
+        return [];
+      }
+    };
+    const save = (flags: string[]) => {
+      try {
+        localStorage.setItem(key, JSON.stringify(flags));
+      } catch {}
+    };
+
+    let flags = new Set(load());
+    let items = all;
+    let index = 0;
+
+    // Progress: one numbered step per question, showing real answers only.
+    const steps = all.map((item) => {
+      const li = document.createElement('li');
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'qz-step';
+      b.dataset.n = item.dataset.n;
+      b.addEventListener('click', () => {
+        if (!items.includes(item)) items = all;
+        show(items.indexOf(item));
+      });
+      li.append(b);
+      progress.append(li);
+      return b;
+    });
+    progress.style.gridTemplateColumns = `repeat(${all.length}, minmax(0, 1fr))`;
+
+    const paintSteps = () => {
+      steps.forEach((b, i) => {
+        const n = all[i].dataset.n!;
+        const a = answers.get(n);
+        const inSet = items.includes(all[i]);
+        b.textContent = n;
+        if (a !== undefined) b.append(Object.assign(document.createElement('span'), { className: 'qz-step-mark', textContent: a ? '✓' : '✗' }));
+        b.dataset.state = a === undefined ? '' : a ? 'right' : 'wrong';
+        if (summary.hidden && items[index] === all[i]) b.setAttribute('aria-current', 'step');
+        else b.removeAttribute('aria-current');
+        b.disabled = !inSet;
+        const state = a === undefined ? 'not answered' : a ? 'answered right' : 'answered wrong';
+        b.setAttribute('aria-label', `Question ${n}, ${state}${flags.has(n) ? ', marked to ask again' : ''}`);
+      });
+    };
+
+    const show = (i: number, focus = true) => {
+      index = Math.max(0, Math.min(i, items.length - 1));
+      summary.hidden = true;
+      nav.hidden = false;
+      all.forEach((item) => (item.hidden = item !== items[index]));
+      $('[data-count]').textContent = `Question ${index + 1} of ${items.length}`;
+      $<HTMLButtonElement>('[data-prev]').disabled = index === 0;
+      $('[data-next]').textContent = index === items.length - 1 ? 'See your result →' : 'Next question →';
+      paintSteps();
+      paintPractice();
+      if (focus) items[index].querySelector<HTMLElement>('.qz-question')!.focus({ preventScroll: true });
+    };
+
+    // A short route back for returning learners: practise the questions marked earlier.
+    const practice = $('[data-practice]');
+    const paintPractice = () => {
+      const practising = items !== all;
+      practice.hidden = flags.size === 0 || practising || !summary.hidden;
+      const k = flags.size;
+      $('[data-practice-text]').textContent = `You marked ${k} question${k === 1 ? '' : 's'} to ask again.`;
+    };
+
+    const showSummary = () => {
+      all.forEach((item) => (item.hidden = true));
+      nav.hidden = true;
+      summary.hidden = false;
+      const right = items.filter((it) => answers.get(it.dataset.n!) === true).length;
+      const answered = items.filter((it) => answers.has(it.dataset.n!)).length;
+      $('[data-score]').textContent = String(right);
+      $('[data-total]').textContent = String(items.length);
+      summary.dataset.tone = right === items.length ? 'good' : right >= items.length / 2 ? 'warn' : 'bad';
+      const boxes = items
+        .filter((it) => 'recalled' in it.dataset)
+        .flatMap((it) => [...it.querySelectorAll<HTMLInputElement>('.qz-point input')]);
+      const ticked = boxes.filter((c) => c.checked).length;
+      $('[data-points]').textContent = boxes.length
+        ? `Key points you ticked from memory: ${ticked} of ${boxes.length}.`
+        : 'You skipped the key points for every question.';
+      $('[data-note]').textContent =
+        answered < items.length ? `You skipped ${items.length - answered}. Skipped questions count as not right.` : '';
+      $('[data-review]').replaceChildren(
+        ...items.map((it) => {
+          const n = it.dataset.n!;
+          const a = answers.get(n);
+          const li = document.createElement('li');
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'qz-review-row';
+          b.innerHTML = `<span class="qz-review-n">${n}</span><span class="qz-review-q"></span><span class="qz-review-state"></span>`;
+          b.querySelector('.qz-review-q')!.textContent = it.querySelector('.qz-question')!.textContent;
+          const st = b.querySelector<HTMLElement>('.qz-review-state')!;
+          const pts = [...it.querySelectorAll<HTMLInputElement>('.qz-point input')];
+          const got = pts.filter((c) => c.checked).length;
+          const recall = 'recalled' in it.dataset ? `${got}/${pts.length} points` : 'points skipped';
+          st.textContent = `${recall} · ${a === undefined ? 'case skipped' : a ? 'case right' : 'case wrong'}${flags.has(n) ? ' · ask again' : ''}`;
+          st.dataset.state = a === undefined ? '' : a ? 'right' : 'wrong';
+          b.addEventListener('click', () => show(items.indexOf(it)));
+          li.append(b);
+          return li;
+        }),
+      );
+      $<HTMLButtonElement>('[data-again-flagged]').hidden = flags.size === 0;
+      paintSteps();
+      paintPractice();
+      summary.focus({ preventScroll: true });
+      summary.scrollIntoView({ block: 'start', behavior: smooth() });
+    };
+
+    const resetItem = (item: HTMLElement) => {
+      item.querySelectorAll<HTMLButtonElement>('.qz-option').forEach((o) => {
+        o.disabled = false;
+        delete o.dataset.state;
+        o.querySelector('[data-mark]')!.textContent = '';
+      });
+      item.querySelector<HTMLElement>('[data-feedback]')!.hidden = true;
+      // The full answer and the follow-up appear only after a choice.
+      item.querySelectorAll('details').forEach((d) => (d.open = false));
+      item.querySelector<HTMLElement>('[data-full]')!.hidden = true;
+      const ev = item.querySelector<HTMLElement>('[data-evidence]');
+      if (ev) ev.hidden = true;
+      item.querySelectorAll<HTMLInputElement>('.qz-point input').forEach((c) => (c.checked = false));
+      setStage(item, 'ask');
+    };
+
+    // Stages: ask (question alone) → recall (key points) → case → answered.
+    const setStage = (item: HTMLElement, stage: 'ask' | 'recall' | 'case') => {
+      item.dataset.stage = stage;
+      item.querySelector<HTMLElement>('[data-ask]')!.hidden = stage !== 'ask';
+      if (stage === 'ask') delete item.dataset.recalled;
+      if (stage === 'recall') item.dataset.recalled = '';
+      item.querySelector<HTMLElement>('[data-recall]')!.hidden = !('recalled' in item.dataset);
+      item.querySelector<HTMLElement>('[data-to-case]')!.hidden = stage !== 'recall';
+      item.querySelector<HTMLElement>('[data-case]')!.hidden = stage !== 'case';
+    };
+
+    for (const item of all) {
+      const n = item.dataset.n!;
+      const correct = Number(item.dataset.correct);
+      const options = [...item.querySelectorAll<HTMLButtonElement>('.qz-option')];
+      const feedback = item.querySelector<HTMLElement>('[data-feedback]')!;
+      const flag = item.querySelector<HTMLInputElement>('[data-flag]')!;
+      flag.checked = flags.has(n);
+
+      item.querySelector('[data-check]')!.addEventListener('click', () => {
+        setStage(item, 'recall');
+        item.querySelector<HTMLInputElement>('.qz-point input')!.focus();
+      });
+      // Entering the case focuses the scenario, so it is read before the answers.
+      const toCase = () => {
+        setStage(item, 'case');
+        item.querySelector<HTMLElement>('.qz-scenario')!.focus();
+      };
+      item.querySelector('[data-skip]')!.addEventListener('click', toCase);
+      item.querySelector('[data-to-case]')!.addEventListener('click', toCase);
+
+      options.forEach((o, i) =>
+        o.addEventListener('click', () => {
+          if (answers.has(n)) return;
+          const right = i === correct;
+          answers.set(n, right);
+          options.forEach((x, j) => {
+            x.disabled = true;
+            if (j === correct) {
+              x.dataset.state = 'right';
+              x.querySelector('[data-mark]')!.textContent = '✓ Right answer';
+            } else if (j === i) {
+              x.dataset.state = 'wrong';
+              x.querySelector('[data-mark]')!.textContent = '✗ Your answer';
+            }
+          });
+          feedback.hidden = false;
+          item.querySelector<HTMLElement>('[data-full]')!.hidden = false;
+          const ev = item.querySelector<HTMLElement>('[data-evidence]');
+          if (ev) ev.hidden = false;
+          const v = feedback.querySelector<HTMLElement>('[data-verdict]')!;
+          v.textContent = right ? 'Right.' : `Not quite. The answer is ${'ABCD'[correct]}.`;
+          v.dataset.state = right ? 'right' : 'wrong';
+          // The chosen button is now disabled, so move focus to the verdict; it is read aloud.
+          feedback.focus({ preventScroll: true });
+          feedback.scrollIntoView({ block: 'nearest', behavior: smooth() });
+          if (!right && !flags.has(n)) {
+            flag.checked = true;
+            flag.dispatchEvent(new Event('change'));
+          }
+          paintSteps();
+        }),
+      );
+
+      flag.addEventListener('change', () => {
+        if (flag.checked) flags.add(n);
+        else flags.delete(n);
+        save([...flags]);
+        paintSteps();
+        paintPractice();
+      });
+    }
+
+    $('[data-prev]').addEventListener('click', () => show(index - 1));
+    $('[data-next]').addEventListener('click', () => (index === items.length - 1 ? showSummary() : show(index + 1)));
+    $('[data-restart]').addEventListener('click', () => {
+      answers.clear();
+      all.forEach(resetItem);
+      items = all;
+      show(0);
+      root.scrollIntoView({ block: 'start', behavior: smooth() });
+    });
+    const practiseMarked = () => {
+      const marked = all.filter((it) => flags.has(it.dataset.n!));
+      if (!marked.length) return;
+      marked.forEach((it) => {
+        answers.delete(it.dataset.n!);
+        resetItem(it);
+      });
+      items = marked;
+      show(0);
+      root.scrollIntoView({ block: 'start', behavior: smooth() });
+    };
+    $('[data-again-flagged]').addEventListener('click', practiseMarked);
+    $('[data-practice-go]').addEventListener('click', practiseMarked);
+
+    // Deep links such as #qz-3 (from search) open that question.
+    const openFromHash = () => {
+      const m = /^#qz-(\w+)$/.exec(location.hash);
+      const item = m && all.find((it) => it.dataset.n === m[1]);
+      if (!item) return false;
+      if (!items.includes(item)) items = all;
+      show(items.indexOf(item), false);
+      // On first load the browser's own fragment scroll runs after this script and would
+      // win, so scroll once the page has loaded.
+      const go = () => {
+        item.scrollIntoView({ block: 'start' });
+        item.querySelector<HTMLElement>('.qz-question')!.focus({ preventScroll: true });
+      };
+      if (document.readyState === 'complete') go();
+      else window.addEventListener('load', () => requestAnimationFrame(go), { once: true });
+      return true;
+    };
+
+    all.forEach(resetItem);
+    root.classList.add('is-ready');
+    if (!openFromHash()) show(0, false);
+    window.addEventListener('hashchange', openFromHash);
+    // A link to the fragment already in the URL fires no hashchange, for example the same
+    // search result chosen twice. Handle that click here instead.
+    document.addEventListener('click', (e) => {
+      // Leave modified clicks (new tab, new window, download) to the browser.
+      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      const a = (e.target as HTMLElement).closest<HTMLAnchorElement>('a[href*="#qz-"]');
+      if (!a || a.pathname !== location.pathname || a.hash !== location.hash) return;
+      e.preventDefault();
+      openFromHash();
+    });
+  }
+</script>
+
+<style is:global>
+  .quiz {
+    max-width: var(--page-max);
+    margin-inline: auto;
+    padding: var(--space-7) var(--gutter);
+
+    .qz-head {
+      display: grid;
+      justify-items: center;
+      gap: var(--space-4);
+      margin-bottom: var(--space-6);
+      text-align: center;
+    }
+
+    .qz-kicker {
+      margin: 0;
+      color: var(--ink-2);
+      font-weight: 700;
+      font-size: var(--text-small);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .qz-title {
+      max-width: 14ch;
+      font-weight: 850;
+      font-variation-settings: 'wdth' 118;
+      font-size: clamp(3rem, 9vw, 8rem);
+      line-height: 0.95;
+      letter-spacing: -0.025em;
+      text-wrap: balance;
+    }
+
+    .qz-intro {
+      max-width: var(--measure);
+      color: var(--ink-2);
+      font-size: clamp(1.125rem, 1.6vw, 1.3rem);
+    }
+
+    /* Progress */
+    .qz-progress ol {
+      display: grid;
+      grid-template-columns: repeat(8, minmax(0, 1fr));
+      gap: clamp(0.25rem, 1vw, 0.5rem);
+      margin: 0 0 var(--space-5);
+      padding: 0;
+      list-style: none;
+    }
+
+    .qz-step {
+      width: 100%;
+      min-height: 44px;
+      padding: var(--space-2) 0 0;
+      border: 0;
+      background: none;
+      color: var(--ink-3);
+      font-weight: 800;
+      font-variation-settings: 'wdth' 118;
+      text-align: left;
+      box-shadow: inset 0 3px 0 var(--faint);
+      cursor: pointer;
+    }
+
+    .qz-step-mark {
+      margin-left: 0.15em;
+      font-size: 0.8em;
+    }
+
+    .qz-step[aria-current] {
+      color: var(--ink);
+      box-shadow: inset 0 6px 0 var(--ink);
+    }
+
+    .qz-step[data-state='right'] {
+      color: var(--good);
+      box-shadow: inset 0 3px 0 var(--good);
+    }
+
+    .qz-step[data-state='wrong'] {
+      color: var(--bad);
+      box-shadow: inset 0 3px 0 var(--bad);
+    }
+
+    .qz-step[aria-current][data-state] {
+      box-shadow: inset 0 6px 0 currentColor;
+    }
+
+    .qz-step:disabled {
+      opacity: 0.35;
+      cursor: default;
+    }
+
+    /* One question */
+    .qz-list {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .qz-item {
+      display: grid;
+      grid-template-columns: 13rem minmax(0, 1fr);
+      gap: var(--space-6);
+      align-items: start;
+      animation: qz-in 0.45s cubic-bezier(.3,0,.2,1) both;
+    }
+
+    .qz-side {
+      display: grid;
+      gap: var(--space-4);
+    }
+
+    .qz-n {
+      font-weight: 850;
+      font-variation-settings: 'wdth' 125;
+      font-size: clamp(5rem, 10vw, 9rem);
+      line-height: 0.8;
+      letter-spacing: -0.04em;
+    }
+
+    .qz-main {
+      display: grid;
+      gap: var(--space-4);
+      max-width: 46rem;
+    }
+
+    .qz-question {
+      margin: 0;
+      font-weight: 800;
+      font-variation-settings: 'wdth' 110;
+      font-size: clamp(1.5rem, 3vw, 2.25rem);
+      line-height: 1.15;
+      letter-spacing: -0.015em;
+      text-wrap: balance;
+      outline: none;
+    }
+
+    .qz-actions {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: var(--space-3) var(--space-5);
+    }
+
+    .qz-recall,
+    .qz-case {
+      display: grid;
+      gap: var(--space-4);
+      justify-items: start;
+      animation: qz-in 0.4s ease both;
+    }
+
+    .qz-recall .qz-points,
+    .qz-case > * {
+      justify-self: stretch;
+    }
+
+    .qz-step-label {
+      color: var(--ink-2);
+      font-weight: 700;
+      font-size: var(--text-small);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .qz-scenario {
+      color: var(--ink-2);
+      font-size: clamp(1.0625rem, 1.5vw, 1.25rem);
+      outline: none;
+    }
+
+    .qz-feedback {
+      outline: none;
+    }
+
+    .qz-evidence {
+      display: grid;
+      gap: var(--space-2);
+      padding-top: var(--space-4);
+      box-shadow: 0 -1px 0 var(--faint);
+    }
+
+    .qz-evidence-q {
+      font-weight: 700;
+    }
+
+    /* Returning learners: a short route to marked questions. */
+    .qz-practice {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+      gap: var(--space-2) var(--space-4);
+      margin: 0 0 var(--space-5);
+      color: var(--ink-2);
+    }
+
+    /* Without JavaScript: every question, case and answer is readable;
+       controls that need a script are not shown. */
+    &:not(.is-ready) {
+      .qz-progress,
+      .qz-nav,
+      .qz-flag,
+      [data-ask],
+      [data-to-case] {
+        display: none;
+      }
+
+      .qz-list {
+        display: grid;
+        gap: var(--space-7);
+      }
+
+      .qz-option:disabled {
+        color: var(--ink);
+        cursor: default;
+      }
+    }
+
+    &.is-ready .qz-nojs {
+      display: none;
+    }
+
+    .qz-nojs {
+      display: grid;
+      gap: var(--space-2);
+      margin: var(--space-2) 0 var(--space-3);
+    }
+
+    .qz-options {
+      display: grid;
+      gap: var(--space-2);
+    }
+
+    .qz-option {
+      display: grid;
+      grid-template-columns: 2.25rem 1fr;
+      grid-template-areas: 'l t' '. m';
+      align-items: baseline;
+      column-gap: var(--space-2);
+      width: 100%;
+      min-height: 52px;
+      padding: var(--space-3) var(--space-3);
+      border: 0;
+      border-radius: 10px;
+      background: color-mix(in srgb, var(--ink) 5%, var(--paper));
+      color: var(--ink);
+      font-size: var(--text);
+      text-align: left;
+      cursor: pointer;
+      transition: background 0.2s ease, transform 0.15s ease;
+    }
+
+    .qz-option:hover:not(:disabled) {
+      background: color-mix(in srgb, var(--ink) 10%, var(--paper));
+    }
+
+    .qz-option:active:not(:disabled) {
+      transform: scale(0.99);
+    }
+
+    .qz-option:disabled {
+      cursor: default;
+      color: var(--ink-3);
+    }
+
+    .qz-option[data-state='right'] {
+      color: var(--ink);
+      background: color-mix(in srgb, var(--good) 16%, var(--paper));
+      box-shadow: inset 5px 0 0 var(--good);
+    }
+
+    .qz-option[data-state='wrong'] {
+      color: var(--ink);
+      background: color-mix(in srgb, var(--bad) 13%, var(--paper));
+      box-shadow: inset 5px 0 0 var(--bad);
+    }
+
+    .qz-letter {
+      grid-area: l;
+      font-weight: 850;
+      font-variation-settings: 'wdth' 125;
+    }
+
+    .qz-text {
+      grid-area: t;
+    }
+
+    .qz-mark {
+      grid-area: m;
+      font-size: var(--text-small);
+      font-weight: 700;
+    }
+
+    .qz-mark:empty {
+      display: none;
+    }
+
+    [data-state='right'] > .qz-mark { color: var(--good); }
+    [data-state='wrong'] > .qz-mark { color: var(--bad); }
+
+    .qz-feedback {
+      display: grid;
+      gap: var(--space-2);
+      animation: qz-in 0.4s ease both;
+    }
+
+    .qz-verdict {
+      font-weight: 850;
+      font-variation-settings: 'wdth' 118;
+      font-size: clamp(1.75rem, 3.5vw, 2.75rem);
+      line-height: 1;
+    }
+
+    .qz-verdict[data-state='right'] { color: var(--good); }
+    .qz-verdict[data-state='wrong'] { color: var(--bad); }
+
+    .qz-myth {
+      color: var(--ink-2);
+    }
+
+    .qz-myth-label {
+      color: var(--ink);
+      font-weight: 750;
+    }
+
+    .qz-full summary {
+      display: inline-flex;
+      align-items: center;
+      min-height: 44px;
+      font-weight: 750;
+      cursor: pointer;
+      list-style: none;
+    }
+
+    .qz-full summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .qz-full summary::before {
+      content: '+';
+      display: inline-grid;
+      place-items: center;
+      width: 1.5rem;
+      margin-right: var(--space-2);
+      font-weight: 850;
+      font-size: 1.25rem;
+    }
+
+    .qz-full[open] summary::before {
+      content: '−';
+    }
+
+    .qz-answer {
+      display: grid;
+      gap: var(--space-3);
+      margin: var(--space-2) 0 var(--space-4);
+      font-size: clamp(1.0625rem, 1.5vw, 1.25rem);
+    }
+
+    .qz-points {
+      display: grid;
+      gap: var(--space-2);
+      margin: 0;
+      padding: 0;
+      border: 0;
+    }
+
+    .qz-points legend {
+      margin-bottom: var(--space-3);
+      padding: 0;
+      color: var(--ink-2);
+      font-weight: 700;
+    }
+
+    .qz-point,
+    .qz-flag {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--space-3);
+      min-height: 32px;
+      cursor: pointer;
+    }
+
+    .qz-point input,
+    .qz-flag input {
+      flex: none;
+      width: 20px;
+      height: 20px;
+      margin: 0.2em 0 0;
+      accent-color: var(--ink);
+    }
+
+    .qz-point {
+      color: var(--ink-2);
+    }
+
+    .qz-point input {
+      accent-color: var(--good);
+    }
+
+    .qz-point:has(input:checked) {
+      color: var(--ink);
+      font-weight: 600;
+    }
+
+    .qz-chapter {
+      display: inline-block;
+      margin-top: var(--space-4);
+      font-weight: 700;
+      font-size: var(--text-small);
+    }
+
+    .qz-chapter.is-off {
+      color: var(--ink-3);
+      font-weight: 500;
+    }
+
+    .qz-flag {
+      color: var(--ink-2);
+      font-size: var(--text-small);
+    }
+
+    /* Nav */
+    .qz-nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-3);
+      margin-top: var(--space-6);
+      padding-top: var(--space-4);
+      box-shadow: 0 -1px 0 var(--faint);
+    }
+
+    .qz-count {
+      color: var(--ink-2);
+      font-size: var(--text-small);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .qz-btn {
+      display: inline-flex;
+      align-items: center;
+      min-height: 48px;
+      padding: 0 var(--space-4);
+      border: 0;
+      border-radius: 24px;
+      background: var(--ink);
+      color: var(--paper);
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .qz-btn.is-quiet {
+      background: none;
+      color: var(--ink);
+      padding-inline: 0;
+    }
+
+    .qz-btn:disabled {
+      opacity: 0.35;
+      cursor: default;
+    }
+
+    /* Summary */
+    .qz-summary {
+      display: grid;
+      justify-items: center;
+      gap: var(--space-2);
+      text-align: center;
+      outline: none;
+      scroll-margin-top: calc(var(--localnav-h) + var(--space-5));
+      animation: qz-in 0.5s cubic-bezier(.3,0,.2,1) both;
+    }
+
+    .qz-score {
+      font-weight: 850;
+      font-variation-settings: 'wdth' 125;
+      font-size: clamp(5rem, 16vw, 12rem);
+      line-height: 0.85;
+      letter-spacing: -0.04em;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .qz-summary[data-tone='good'] .qz-score { color: var(--good); }
+    .qz-summary[data-tone='warn'] .qz-score { color: var(--warn); }
+    .qz-summary[data-tone='bad'] .qz-score { color: var(--bad); }
+
+    .qz-of {
+      color: var(--ink-3);
+    }
+
+    .qz-score-unit {
+      font-weight: 800;
+      font-variation-settings: 'wdth' 112;
+      font-size: clamp(1.5rem, 3.4vw, 2.5rem);
+    }
+
+    .qz-score-points {
+      font-weight: 700;
+    }
+
+    .qz-score-note {
+      color: var(--ink-2);
+    }
+
+    .qz-review {
+      width: 100%;
+      max-width: 46rem;
+      margin: var(--space-5) 0 var(--space-4);
+      padding: 0;
+      list-style: none;
+      text-align: left;
+    }
+
+    .qz-review-row {
+      display: grid;
+      grid-template-columns: 2.5rem 1fr auto;
+      gap: var(--space-3);
+      align-items: baseline;
+      width: 100%;
+      min-height: 48px;
+      padding: var(--space-3) 0;
+      border: 0;
+      background: none;
+      color: var(--ink);
+      font-size: var(--text);
+      text-align: left;
+      box-shadow: 0 -1px 0 var(--faint);
+      cursor: pointer;
+    }
+
+    .qz-review-row:hover .qz-review-q {
+      text-decoration: underline;
+      text-underline-offset: 0.2em;
+    }
+
+    .qz-review-n {
+      font-weight: 850;
+      font-variation-settings: 'wdth' 125;
+    }
+
+    .qz-review-state {
+      color: var(--ink-3);
+      font-size: var(--text-small);
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .qz-review-state[data-state='right'] { color: var(--good); }
+    .qz-review-state[data-state='wrong'] { color: var(--bad); }
+
+    .qz-summary-actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: var(--space-3) var(--space-5);
+    }
+
+    .qz-sources {
+      max-width: var(--measure);
+      margin: var(--space-7) auto 0;
+      color: var(--ink-2);
+      font-size: var(--text-small);
+    }
+
+    @media (max-width: 52rem) {
+      .qz-item {
+        grid-template-columns: 1fr;
+        gap: var(--space-4);
+      }
+
+      .qz-side {
+        grid-template-columns: auto 1fr;
+        align-items: end;
+      }
+
+      .qz-review-row {
+        grid-template-columns: 2rem 1fr;
+      }
+
+      .qz-review-state {
+        grid-column: 2;
+      }
+    }
+  }
+
+  @keyframes qz-in {
+    from { opacity: 0; transform: translateY(10px); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .quiz .qz-item,
+    .quiz .qz-feedback,
+    .quiz .qz-recall,
+    .quiz .qz-case,
+    .quiz .qz-summary {
+      animation: none;
+    }
+
+    .quiz .qz-option {
+      transition: none;
+    }
+  }
+</style>

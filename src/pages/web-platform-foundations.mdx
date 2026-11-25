@@ -1,0 +1,369 @@
+---
+layout: ../layouts/Guide.astro
+title: Web platform foundations
+description: How the browser and JavaScript work underneath every framework.
+lede: How the browser and JavaScript work underneath every framework. Most frontend bugs start in a few places. This guide shows where, and why.
+number: '03'
+nav:
+  - { id: map, label: Map }
+  - { id: event-loop, n: '2', label: Event loop }
+  - { id: out-of-order, n: '4', label: Out of order }
+  - { id: http-caching, n: '5', label: HTTP caching }
+  - { id: quiz, label: Test yourself }
+---
+
+import Chapter from '../components/Chapter.astro';
+import BugMap from '../components/web-platform/BugMap.astro';
+import EventLoopSim from '../components/web-platform/EventLoopSim.astro';
+import RaceSim from '../components/web-platform/RaceSim.astro';
+import CachingSimulator from '../components/web-platform/CachingSimulator.astro';
+import Quiz from '../components/Quiz.astro';
+import QuizItem from '../components/QuizItem.astro';
+
+<section id="map" class="map-section" aria-labelledby="map-title">
+  <h2 id="map-title">Where frontend bugs start</h2>
+  <p>Eight places, from the network to the screen. Each one is a chapter. Read the symptom first, then the cause.</p>
+  <BugMap />
+</section>
+
+<Chapter
+  id="event-loop"
+  n="2"
+  topic="The event loop"
+  question="What is the event loop? Why can a long task make the page feel frozen?"
+  title="One thing at a time."
+>
+  <Fragment slot="answer">
+    The main thread runs your JavaScript one task at a time. A task is one piece of work, like running a click handler. The event loop starts the next task only when the current one ends. So a tap during a long task must wait, and so does any change your code makes to the page.
+  </Fragment>
+
+  <EventLoopSim />
+
+  <Fragment slot="after">
+    ### What still moves during a long task
+
+    Some changes do not need the main thread. The browser scrolls the page, and runs some `transform` and `opacity` animations, on a separate compositor thread. So scrolling can often continue while a long task runs. Your click handler and the changes it makes to the page cannot.
+
+    ### Split the work, or move it
+
+    Splitting long work into small tasks lets the event loop handle taps in between. This is called yielding. The work takes a little longer in total, but the page stays responsive. `scheduler.yield()` is made for this, but it does not work in every browser yet, so you need a fallback such as `setTimeout()`.
+
+    A web worker takes the work off the main thread completely. A worker runs in a separate thread, but it cannot change the page directly. [Question 3 in the self-test](#qz-3) covers workers until chapter 3 is written.
+
+    ### A simplified model
+
+    In this model a frame is due every 1/60 of a second. The screen updates only between tasks, so a frame that falls due during a task waits for that task to end. Real browsers also consider the screen's refresh rate and other work.
+
+    The result shows the whole interaction: the wait in the queue, the handler, and the wait for the next screen update. Interaction to Next Paint (INP) measures the same span for real users. For one visit, INP reports about the slowest interaction. Across many visits, the 75th percentile is the value that counts.
+
+    Sources, checked 23 November 2026, INP and rendering pipeline checked 25 November 2026: [web.dev, Rendering performance](https://web.dev/articles/rendering-performance), [web.dev, Optimize long tasks](https://web.dev/articles/optimize-long-tasks), [web.dev, Interaction to Next Paint](https://web.dev/articles/inp), [Long Tasks API, terminology](https://wicg.github.io/longtasks/#sec-terminology), [MDN, Scheduler.yield()](https://developer.mozilla.org/en-US/docs/Web/API/Scheduler/yield), [HTML Standard, event loop processing model](https://html.spec.whatwg.org/multipage/webappapis.html#event-loop-processing-model).
+  </Fragment>
+</Chapter>
+
+<Chapter
+  id="out-of-order"
+  n="4"
+  topic="Requests out of order"
+  question="Two requests finish in the wrong order, and the page shows old data. Why does this happen, and how do you prevent it?"
+  title="The last answer wins."
+>
+  <Fragment slot="answer">
+    Each request takes its own time on the network, and each response arrives when it is ready. If an older request is slower, its response arrives last. Without a guard, the page shows it and replaces the newer results.
+  </Fragment>
+
+  <RaceSim />
+
+  <Fragment slot="after">
+    ### Ignore or cancel
+
+    To ignore old responses, give each request a number. Use a response only if its number is the latest. This works for any async work, not only `fetch()`.
+
+    To cancel the old request, pass an `AbortController` signal to `fetch()`. Call `abort()` when a new search starts. The old `fetch()` then fails with an `AbortError`, and the page should not treat that as a real error. Cancelling also means the page stops waiting for data it no longer needs.
+
+    Sources, checked 23 November 2026: [MDN, AbortController](https://developer.mozilla.org/en-US/docs/Web/API/AbortController), [MDN, fetch() exceptions](https://developer.mozilla.org/en-US/docs/Web/API/Window/fetch#exceptions).
+  </Fragment>
+</Chapter>
+
+<Chapter
+  id="http-caching"
+  n="5"
+  topic="HTTP caching"
+  question="How does HTTP caching work? What do Cache-Control and ETag do?"
+  title="A fresh copy never asks."
+>
+  <Fragment slot="answer">
+    The server says how long a copy of a file stays fresh. While it is fresh, the browser uses it and asks nobody. When it turns stale, the browser checks with the server first.
+  </Fragment>
+
+  <CachingSimulator />
+
+  <Fragment slot="after">
+    ### What this model leaves out
+
+    This is a normal visit with `Cache-Control: max-age=300` and an ETag. A reload is different. The browser checks the page itself with the server, even when its copy is fresh. Chrome may still use fresh copies of the page's other files, such as scripts, without asking. If the server sends no `Cache-Control`, the browser may choose a freshness time itself, so the old-file problem can happen by accident.
+
+    Sources, checked 23 November 2026: [MDN, HTTP caching](https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Caching), [RFC 9111, HTTP Caching](https://www.rfc-editor.org/rfc/rfc9111.html#name-freshness), [RFC 9110, 304 Not Modified](https://www.rfc-editor.org/rfc/rfc9110.html#name-304-not-modified), [Chromium blog, Reload, reloaded (2017)](https://blog.chromium.org/2017/01/reload-reloaded-faster-and-leaner-page_26.html).
+  </Fragment>
+</Chapter>
+
+<Quiz id="quiz" storageKey="web-platform-foundations">
+  <Fragment slot="title">Eight questions.</Fragment>
+  <Fragment slot="intro">
+    These are the common interview questions for this topic. Each one starts alone. When you have your answer, check it against the key points. Then a real case tests whether you can use the idea.
+  </Fragment>
+
+  <QuizItem
+    n="1"
+    art="render"
+    question="What does the browser do between receiving HTML and showing pixels on the screen?"
+    scenario="A script changes the width of a box on the page. Which steps must the browser run again before the user sees the new width?"
+    options={[
+      'Only paint. The browser just draws the box again.',
+      'Only style. The width is just a new CSS value.',
+      'Layout, then paint. The size changed, so positions must be computed again.',
+      'Nothing, if the box has a CSS transition on width.',
+    ]}
+    correct={2}
+    why="Layout computes the size and position of every element. A new width can move other elements too, so layout runs again. Then paint draws the new pixels. A transition does not help: it runs layout and paint on every frame of the animation."
+    myth="Not every change costs the same. A new colour needs paint but not layout. A new width needs layout and paint. Moving an element with transform can skip both: the compositor moves a layer that is already painted."
+    evidence={{
+      question: 'Which evidence in a performance trace would show that the width change is the expensive part?',
+      answer: 'In the Chrome DevTools Performance panel, the script that sets the width is followed by Layout and Paint events. If the script reads a size, such as offsetWidth, right after it writes one, the trace shows a forced layout inside the script.',
+    }}
+    points={[
+      'HTML becomes the DOM. CSS becomes the CSSOM.',
+      'The render tree combines them and keeps only the elements that are shown.',
+      'Layout computes the size and position of each element.',
+      'Paint turns the result into pixels.',
+      'A change to size, or to position with top or left, runs layout again. transform can skip layout and paint.',
+    ]}
+  >
+    The browser reads the HTML and builds the DOM, a tree of all the elements. It reads the CSS and builds the CSSOM, a tree of all the style rules. It combines them into the render tree. The render tree holds only what is shown, so an element with `display: none` is not in it.
+
+    Next comes layout: the browser computes where each element goes and how big it is. Then paint: it draws the pixels. The first pixels appear only after these steps. When a script changes sizes later, layout and paint run again.
+  </QuizItem>
+
+  <QuizItem
+    n="2"
+    art="main"
+    href="#event-loop"
+    question="What is the event loop? Why can a long task make the page feel frozen?"
+    scenario="A click handler sorts a big list for 400 ms. The user taps “Add to cart” 100 ms after the sort starts. When can the button show “Added”?"
+    options={[
+      'After the sort ends. Then the tap handler runs, and the next frame shows the change.',
+      'At once, if the sort is in an async function.',
+      'After 50 ms, when the browser stops the long task to handle input.',
+      'At once. Taps are handled on their own thread.',
+    ]}
+    correct={0}
+    why="The main thread runs one task at a time, to the end. Nothing stops a long task early. The tap waits in a queue for 300 ms until the sort finishes, and the button cannot change in that time."
+    evidence={{
+      question: 'Which evidence in a performance trace would confirm this?',
+      answer: 'A long task on the main thread that starts before the tap and ends just before the tap handler runs. The interaction shows a long input delay, about as long as the rest of that task. The Chrome DevTools Performance panel shows both.',
+    }}
+    myth="An async function does not run in parallel. Its code still runs on the main thread. It only pauses at each await."
+    points={[
+      'The main thread takes one task from a queue and runs it to the end.',
+      'Updates your code makes appear only between tasks. Scrolling can often continue on the compositor thread.',
+      'A long task runs for more than 50 ms.',
+      'Input waits during a long task. INP measures this: 200 ms or less is good.',
+      'Fixes: split the work and yield, or move it to a web worker.',
+    ]}
+  >
+    The event loop is how the browser shares one main thread. It takes a task from a queue, for example a click handler, and runs it to the end. Between tasks it can update the screen. Then it takes the next task.
+
+    A long task runs for more than 50 ms. While it runs, clicks and key presses wait, and changes your code makes to the page wait too. The user sees a frozen page, even if scrolling still works, because the browser scrolls on a separate compositor thread. To fix it, split the work into small tasks and give the browser a turn between them. `scheduler.yield()` does this, but not every browser has it yet, so keep a `setTimeout` fallback. Or move heavy work to a web worker.
+  </QuizItem>
+
+  <QuizItem
+    n="3"
+    art="worker"
+    question="When would you move work to a web worker?"
+    scenario="The user drops a 40 MB CSV file onto the page. The page parses it, and typing in the search box lags for 2 seconds. Which change helps most?"
+    options={[
+      'Make the parse function async.',
+      'Parse the file inside requestAnimationFrame.',
+      'Move the parsing and the table that shows the rows into a web worker.',
+      'Parse the file in a web worker and send the result back.',
+    ]}
+    correct={3}
+    why="A worker runs on a background thread. The parsing no longer blocks the main thread, so typing stays smooth. Send the file's bytes as a transferable ArrayBuffer: they move to the worker without a copy. The worker sends the parsed rows back in a message."
+    myth="A worker cannot change the DOM, so the table must stay on the main thread. And a message is not always a copy: a transferred ArrayBuffer moves to the worker, and the page can no longer use it."
+    evidence={{
+      question: 'Which evidence would show that parsing causes the lag?',
+      answer: 'A performance trace with one long task on the main thread that starts when the file is dropped and spends most of its time in the parse function. Key presses during that task show a long input delay.',
+    }}
+    points={[
+      'A worker runs on a background thread, beside the main thread.',
+      'It cannot touch the DOM.',
+      'Messages are copied by default. An ArrayBuffer can be transferred: moved, not copied.',
+      'Good for heavy work like parsing, image processing or search indexes.',
+      'If the work needs the DOM, split it into small tasks instead.',
+    ]}
+  >
+    Use a worker for heavy work that does not need the DOM. Examples: parsing a big file, processing an image, building a search index. The main thread stays free for input and screen updates.
+
+    A worker is not free. It cannot change the page. Data in a message is copied by default, which is called structured cloning. For large binary data, transfer it instead: `postMessage(buffer, [buffer])` moves the `ArrayBuffer` to the worker without a copy, and the page can no longer use it. The parsed rows that come back are copied, which costs time for a big result. For small work, these costs can be larger than the gain. If the work needs the DOM, split it into small tasks on the main thread instead.
+  </QuizItem>
+
+  <QuizItem
+    n="4"
+    art="order"
+    href="#out-of-order"
+    question="Two requests finish in the wrong order, and the page shows old data. Why does this happen, and how do you prevent it?"
+    scenario="The user types “ca” at 0 ms, and the page sends a request that takes 900 ms. At 200 ms the user types “cat”, and the page sends a request that takes 300 ms. The code shows each response when it arrives. What does the user see at the end?"
+    options={[
+      'Results for “cat”, because it was sent last.',
+      'Results for “ca”, because its response arrived last.',
+      'Results for “cat”, because the browser delivers fetch() responses in the order they were sent.',
+      'Results for “ca” first, then “cat” when the faster response is shown.',
+    ]}
+    correct={1}
+    evidence={{
+      question: 'Which evidence would confirm this diagnosis?',
+      answer: 'The start and end times of both requests in the DevTools Network panel: the older request ends after the newer one. A log of the query next to each response the page applies shows that “ca” was applied last.',
+    }}
+    why="Each response replaces the list when it arrives. The “cat” response arrives at 500 ms. The “ca” response arrives at 900 ms and replaces it. The box says “cat”, but the list is for “ca”."
+    myth="Nothing makes responses arrive in the order you sent them. Each request takes its own time."
+    points={[
+      'Responses can arrive in any order.',
+      'Use a response only if it belongs to the latest request.',
+      'Or cancel the old request with an AbortController.',
+      'A cancelled fetch() fails with an AbortError. Do not show it as an error.',
+      'Debouncing sends fewer requests, but it does not fix the order.',
+    ]}
+  >
+    Each request goes over the network on its own. A slow server, a busy network or a bigger result can make an older request finish later. If the code shows every response when it arrives, the last one to arrive wins, not the last one sent.
+
+    There are two fixes. Ignore old responses: give each request a number and use a response only if its number is the latest. Or cancel old requests: pass an `AbortController` signal to `fetch()` and call `abort()` when a new search starts. With either fix, check that the request is still the latest just before you apply its result. Debouncing, which waits until the user stops typing, sends fewer requests. It does not stop a slow one from arriving last.
+  </QuizItem>
+
+  <QuizItem
+    n="5"
+    art="cache"
+    href="#http-caching"
+    question="How does HTTP caching work? What do Cache-Control and ETag do?"
+    scenario="app.js is sent with Cache-Control: max-age=3600 and keeps the same file name. A user loaded it 10 minutes ago. You deploy a fix now. The user visits the page again (a normal visit, not a reload). Which app.js runs?"
+    options={[
+      'The old one. The browser does not ask the server at all.',
+      'The new one, because the file on the server changed.',
+      'The new one. The browser sends the ETag and gets a 200.',
+      'The old one, after the server answers 304.',
+    ]}
+    correct={0}
+    evidence={{
+      question: 'Which evidence would confirm this?',
+      answer: 'In the DevTools Network panel, app.js comes from the disk cache or memory cache, and no request reaches the server. Its stored response headers show Cache-Control: max-age=3600.',
+    }}
+    why="The copy is 600 seconds old and stays fresh for 3600 seconds. A fresh copy is used without asking the server. Every normal visit runs the old file until the copy is 3600 seconds old."
+    myth="The ETag does not help here. The browser sends it only when it checks with the server, and a fresh copy never checks."
+    points={[
+      'max-age says how many seconds a copy stays fresh.',
+      'A fresh copy is used without contacting the server.',
+      'A stale copy is checked: the browser sends If-None-Match with the ETag.',
+      '304 means no body, keep the copy. 200 means here is a new file.',
+      'Common policy: hashed file names with a long max-age, and no-cache for HTML.',
+    ]}
+  >
+    `Cache-Control` tells the browser how long a copy stays fresh, for example `max-age=3600` for one hour. While it is fresh, the browser uses it and sends no request. After that, the copy is stale. The browser asks the server whether it changed and sends the `ETag`, a version label for the file, in `If-None-Match`. The server answers `304 Not Modified` with no body, or `200` with the new file.
+
+    A common policy: give static files a new name for each version, such as `app.3f9a.js`, and cache them for a long time. Send HTML with `no-cache`, which means the browser may store it but must check before each use. `no-store` means do not store it at all.
+  </QuizItem>
+
+  <QuizItem
+    n="6"
+    art="memory"
+    question="What causes memory leaks in a page that stays open for hours?"
+    scenario="A dashboard stays open all day. Each time the user opens a panel, the code adds a resize listener on window. The listener's function uses the panel, to resize it. Closing the panel removes it from the page, but not the listener. What happens over the day?"
+    options={[
+      'Nothing. The garbage collector frees each panel when it leaves the page.',
+      'The browser removes the listener when the panel leaves the page.',
+      'Memory grows with every open. Each listener’s function still refers to its own panel.',
+      'Memory grows while a panel is open, then drops back when it closes.',
+    ]}
+    correct={2}
+    why="The garbage collector frees only memory that nothing can reach. window lives as long as the page and keeps every listener. Each listener's function still refers to its own panel. So every closed panel stays in memory."
+    evidence={{
+      question: 'Which evidence would confirm the leak?',
+      answer: 'Heap snapshots in the DevTools Memory panel, taken before and after opening and closing the panel several times. The number of detached elements grows with each round, and their retainers lead to the resize listener.',
+    }}
+    myth="Removing an element from the page does not free it. If any code still refers to it, it stays in memory as a detached element."
+    points={[
+      'Garbage collection frees only what nothing can reach.',
+      'Listeners, timers and subscriptions that are never removed.',
+      'Caches and maps that only grow.',
+      'Detached DOM elements still held by code.',
+      'Find them with heap snapshots in the DevTools Memory panel.',
+    ]}
+  >
+    JavaScript frees memory by itself, but only memory that nothing can reach any more. A leak happens when something long-lived keeps a reference to something you no longer need. Common examples: an event listener or timer that is never removed, a subscription that is never closed, a cache that only grows, or a removed element that a variable still holds.
+
+    Each one is small, but the page repeats it for hours. To find them, take heap snapshots in the DevTools Memory panel before and after a repeated action, and compare. Look for detached elements. To fix them, remove listeners, timers and subscriptions when a component closes.
+  </QuizItem>
+
+  <QuizItem
+    n="7"
+    art="data"
+    question="Why can an app with correct TypeScript types still fail on an API response?"
+    scenario="Your type says user.address.city is a string. The API team ships a change, and some users now have no address. TypeScript showed no errors. What happens in the browser?"
+    options={[
+      'TypeScript reports a clear type error while the page runs.',
+      'The browser uses an empty string, because the type says string.',
+      'The next build fails, because the API no longer matches the type.',
+      'A TypeError when the code reads city, such as “Cannot read properties of undefined” in Chrome.',
+    ]}
+    correct={3}
+    evidence={{
+      question: 'Which evidence would confirm the cause?',
+      answer: 'The error’s stack trace points to the line that reads city. In the Network panel, the API response for an affected user has no address field, or address is null.',
+    }}
+    why="Types are removed when TypeScript compiles to JavaScript. When the response arrives, nothing checks it. The code reads address.city, but address is undefined."
+    myth="Writing “as User”, or giving fetch a typed wrapper, does not check the data. It only tells the compiler to trust you."
+    points={[
+      'Types are removed when the code is compiled.',
+      'API data arrives while the page runs, so the types never see it.',
+      '“as” only silences the compiler.',
+      'Validate data where it enters the app, with a schema.',
+      'Decide what the page shows when the data is wrong.',
+    ]}
+  >
+    TypeScript checks your code before it runs. The API response arrives later, while the page runs. By then the types are gone: TypeScript removes them when it compiles to JavaScript. So a type is a promise you make, not a check.
+
+    To make it safe, check the data where it enters the app. A schema library such as Zod or Valibot checks the response and gives you typed data, or a clear error. Then decide what the page does with bad data: show a message, use a default, or report it.
+  </QuizItem>
+
+  <QuizItem
+    n="8"
+    art="browsers"
+    question="How do you decide which browsers to support, and what happens in older ones?"
+    scenario="You want to use a new CSS feature. Baseline marks it “Newly available”. Some of your users have older phones that no longer get updates. What is the safest plan?"
+    options={[
+      'Use it. Newly available means every user has it.',
+      'Use it as an extra. Make sure the page still works without it.',
+      'Never use features younger than five years.',
+      'Add a polyfill for every CSS feature.',
+    ]}
+    correct={1}
+    evidence={{
+      question: 'Which evidence would you collect before you decide?',
+      answer: 'Your analytics: the share of real users on each browser and version, especially for key tasks such as checkout. Then the first browser versions that support the feature, from its Baseline status or MDN.',
+    }}
+    why="Newly available means it works in the latest version of each core browser. Users on older versions may not have it. With a fallback, they get a simpler page that still works."
+    myth="Supporting a browser does not mean it must look the same everywhere. It means the core tasks work there."
+    points={[
+      'Decide with real data: your analytics, market and customers.',
+      'Baseline: Newly available is in all core browsers. Widely available is 30 months later.',
+      'Write the target in browserslist, so your build tools share it.',
+      'Detect features, for example with @supports in CSS.',
+      'Progressive enhancement: the core works everywhere, extras where possible.',
+    ]}
+  >
+    Start with your users. Look at your analytics, your markets and your customers' needs, for example a company that must use an older browser. Baseline gives a shared reference. The core browsers are Chrome and Firefox on desktop and Android, Edge on desktop, and Safari on macOS and iOS. "Newly available" means a feature works in the latest version of all of them. "Widely available" means 30 months have passed since then.
+
+    Write your target in a browserslist config, so tools such as Autoprefixer and Babel use the same list. In older browsers, use progressive enhancement: build the core so it works everywhere, and add newer features only where the browser supports them. Check support with `@supports` in CSS or a feature check in JavaScript.
+  </QuizItem>
+
+  <Fragment slot="sources">
+    Sources, checked 23 November 2026, and on 25 November 2026 for transfer, Baseline and TypeScript: [HTML Standard, Transferable objects](https://html.spec.whatwg.org/multipage/structured-data.html#transferable-objects), [MDN, Critical rendering path](https://developer.mozilla.org/en-US/docs/Web/Performance/Guides/Critical_rendering_path), [web.dev, Render-tree construction, layout and paint](https://web.dev/articles/critical-rendering-path/render-tree-construction), [MDN, Using web workers](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Using_web_workers), [MDN, Memory management](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Memory_management), [Chrome DevTools, Fix memory problems](https://developer.chrome.com/docs/devtools/memory-problems), [TypeScript handbook, Erased types](https://www.typescriptlang.org/docs/handbook/2/basic-types.html#erased-types), [web.dev, Baseline](https://web.dev/baseline), [MDN, Baseline](https://developer.mozilla.org/en-US/docs/Glossary/Baseline/Compatibility), [MDN, Progressive enhancement](https://developer.mozilla.org/en-US/docs/Glossary/Progressive_Enhancement), [browserslist](https://github.com/browserslist/browserslist). The event loop, request order and caching answers use the sources in their chapters.
+  </Fragment>
+</Quiz>
