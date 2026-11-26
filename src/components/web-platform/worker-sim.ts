@@ -1,5 +1,4 @@
-// Model and text for the web worker scene. Shared by the server-rendered default
-// state (works without JavaScript) and the interactive script.
+// Model and text for the web worker scene.
 // Teaching model, simplified: the main thread runs one task at a time, oldest first
 // (HTML event loop). The worker runs on its own thread. Times are illustrative,
 // not measured: reading all returned rows stands for "a big result costs main-thread time".

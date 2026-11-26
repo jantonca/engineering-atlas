@@ -312,7 +312,6 @@ const { id, storageKey } = Astro.props;
     };
 
     all.forEach(resetItem);
-    root.classList.add('is-ready');
     if (!openFromHash()) show(0, false);
     window.addEventListener('hashchange', openFromHash);
     // A link to the fragment already in the URL fires no hashchange, for example the same
@@ -523,38 +522,6 @@ const { id, storageKey } = Astro.props;
       gap: var(--space-2) var(--space-4);
       margin: 0 0 var(--space-5);
       color: var(--ink-2);
-    }
-
-    /* Without JavaScript: every question, case and answer is readable;
-       controls that need a script are not shown. */
-    &:not(.is-ready) {
-      .qz-progress,
-      .qz-nav,
-      .qz-flag,
-      [data-ask],
-      [data-to-case] {
-        display: none;
-      }
-
-      .qz-list {
-        display: grid;
-        gap: var(--space-7);
-      }
-
-      .qz-option:disabled {
-        color: var(--ink);
-        cursor: default;
-      }
-    }
-
-    &.is-ready .qz-nojs {
-      display: none;
-    }
-
-    .qz-nojs {
-      display: grid;
-      gap: var(--space-2);
-      margin: var(--space-2) 0 var(--space-3);
     }
 
     .qz-options {

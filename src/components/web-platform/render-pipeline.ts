@@ -1,5 +1,4 @@
-// Text and rules for the render pipeline scene. Shared by the server-rendered
-// first-load state (works without JavaScript) and the interactive script.
+// Text and rules for the render pipeline scene.
 import type { Tone } from '../../scripts/sim';
 
 export type Stage = 'parse' | 'style' | 'layout' | 'paint' | 'composite';

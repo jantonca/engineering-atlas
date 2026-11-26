@@ -1,7 +1,6 @@
 ---
 // One interview question. Recall first: the question alone, then the key points
 // to check yourself against, then a real case to answer, then the full answer.
-// Without JavaScript every part is visible, and the answer sits in a native disclosure.
 import BugArt, { type Art } from './web-platform/BugArt.astro';
 
 interface Props {
@@ -75,10 +74,6 @@ const letters = 'ABCD';
 
       <details class="qz-full" data-full>
         <summary>Show the full answer</summary>
-        <div class="qz-nojs" data-pagefind-ignore>
-          <p><strong>Right answer: {letters[correct]}.</strong> {why}</p>
-          <p class="qz-myth"><span class="qz-myth-label">A common mistake.</span> {myth}</p>
-        </div>
         <div class="qz-answer"><slot /></div>
         {href ? <a class="qz-chapter" href={href}>Chapter {n} explains this with a simulator ↑</a> : <p class="qz-chapter is-off">Chapter {n} is not written yet.</p>}
       </details>

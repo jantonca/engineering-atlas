@@ -12,6 +12,7 @@ nav:
   - { id: out-of-order, n: '4', label: Out of order }
   - { id: http-caching, n: '5', label: HTTP caching }
   - { id: memory-leaks, n: '6', label: Memory leaks }
+  - { id: runtime-validation, n: '7', label: API data }
   - { id: quiz, label: Test yourself }
 ---
 
@@ -23,6 +24,7 @@ import WorkerSim from '../components/web-platform/WorkerSim.astro';
 import RaceSim from '../components/web-platform/RaceSim.astro';
 import CachingSimulator from '../components/web-platform/CachingSimulator.astro';
 import MemorySim from '../components/web-platform/MemorySim.astro';
+import DataSim from '../components/web-platform/DataSim.astro';
 import Quiz from '../components/Quiz.astro';
 import QuizItem from '../components/QuizItem.astro';
 
@@ -242,6 +244,68 @@ import QuizItem from '../components/QuizItem.astro';
   </Fragment>
 </Chapter>
 
+<Chapter
+  id="runtime-validation"
+  n="7"
+  topic="Types and API data"
+  question="Why can an app with correct TypeScript types still fail on an API response?"
+  title="Types end at the build."
+>
+  <Fragment slot="answer">
+    TypeScript checks your code before it runs, then removes the types. The API response arrives later, while the page runs, and nothing compares it with the type. If the API sends something else, the code uses it anyway. To catch it, check the data with a schema where it enters the app.
+  </Fragment>
+
+  <DataSim />
+
+  <Fragment slot="after">
+    ### A type is a promise, not a check
+
+    TypeScript compiles your code to JavaScript, and the browser runs only the JavaScript. The compiler removes every type, every `interface` and every `as`. This is called type erasure. So a type can check how your code uses data. It cannot check the data itself.
+
+    In the browser's type definitions, `res.json()` returns `Promise<any>`. So the value you get after `await` has the type `any`. `any` turns off type checking, so you can use the value as anything. `as Order` is a type assertion: it tells the compiler "trust me, this is an Order". The TypeScript handbook says there is no runtime check for a type assertion. A typed wrapper around `fetch()` that ends in `as T` does the same thing in another place.
+
+    Bad data does not always crash. In the scene, `"42.95" + 5` joins two strings and gives `"42.955"`. A missing field gives `undefined`, which the page can show as text. A crash at least shows up in your error reports. A wrong value on the screen often does not.
+
+    ### Check where data enters the app
+
+    A schema describes the shape of the data in ordinary code. A schema library checks a value against it while the page runs. It returns the data, typed, or an error that names each field that failed. Check once, at the edge of the app. The code after that can trust the type, because something checked it.
+
+    The edges are every place where data comes from outside your code: API responses, `localStorage`, URL parameters, messages from a worker or a WebSocket, and JSON files. Inside the app, the types are enough.
+
+    Write the schema once and get the type from it, so the two cannot drift apart. In Zod, `z.infer<typeof Order>` gives the type. In Valibot, `v.InferOutput<typeof Order>` does. A schema also removes fields you did not list: by default a Zod object drops unknown keys from the result.
+
+    ### Throw, or handle the result
+
+    `Order.parse(data)` returns the data or throws an error. `Order.safeParse(data)` does not throw when the data is invalid. It returns an object with `success: true` and the data, or `success: false` and the error. One exception: a schema with an async check, such as a refinement that calls a server, needs `parseAsync()` or `safeParseAsync()`. Plain `safeParse()` throws on it. Valibot has the same pair: `v.parse()` throws a `ValiError`, and `v.safeParse()` returns a result.
+
+    Either way, decide what the page does with bad data. Show a message and a way to retry. Or show the parts you can trust, with a default for the rest. Always send the error to your error reports. The error names the field, so you can see which API change broke the page.
+
+    ### Zod or Valibot
+
+    Both check data while the page runs and give you the type for free. They differ in how you write the schema and in how much code they add to the page.
+
+    Zod has far more downloads. In the week of 18 to 24 November 2026, npm counted [467.6 million downloads for Zod and 35.7 million for Valibot](https://api.npmjs.org/downloads/point/2026-11-18:2026-11-24/zod,valibot), about 13 times as many. npm counts each time it serves the package file, for example to a build server. An install from a local cache adds nothing. So these numbers compare the two packages, not how many teams use them. Zod uses chained methods, such as `z.string().min(1)`. The current version is 4.6.7. Zod 4 also has Zod Mini, the same checks written as separate functions. A bundler can then remove the functions you do not use. Zod's own docs suggest regular Zod unless the bundle size really matters.
+
+    Valibot uses separate functions from the start, such as `v.pipe(v.string(), v.minLength(1))`. The current version is 1.5.0. Its comparison page says a simple login form needs 1.37 kB with Valibot and 17.7 kB with Zod. These are Valibot's numbers for one example. Measure your own bundle before you choose for size.
+
+    You do not always have to choose. Standard Schema is a shared interface that Zod, Valibot, ArkType and many other libraries implement. Tools such as tRPC, TanStack Form and React Hook Form accept any schema that implements it.
+
+    ### What a schema cannot do
+
+    A schema checks the shape of the data, not whether it is true. A total of `42.95` passes even if the right total is `52.95`. A schema can also be out of date, like a type. It catches only changes that break one of its rules. In the scene, the new status "returned" breaks the `z.enum()` rule, so `parse()` fails. But if the API adds a new field, such as `tax`, the check passes: a Zod object drops fields it does not list and returns success. Your code never sees `tax`, and nobody is told. To be told about new fields, use `z.strictObject()`, which fails on unknown fields. Then the page breaks on every harmless addition, so most apps accept the default.
+
+    Each check costs some time while the page runs. For a normal API response this is small. For a large response, measure it, or check it in a [web worker](#web-workers). Types generated from an OpenAPI file are still only types: they keep the code and the API description in step, but they do not check the response. And checking on the client never protects the server. The server must check everything it receives.
+
+    ### A simplified model
+
+    The scene uses Zod's real error messages. Valibot's message for the same total reads `Invalid type: Expected number but received "42.95"`. In a real app, the error would go to an error boundary or a handler that shows the message and reports the error.
+
+    Test yourself with [question 7](#qz-7): it gives you a real case to apply this to.
+
+    Sources, checked 26 November 2026. The Zod and Valibot messages were checked by running Zod 4.6.7 and Valibot 1.5.0, and type erasure with TypeScript 7.0.2: [TypeScript handbook, Type assertions](https://www.typescriptlang.org/docs/handbook/2/everyday-types.html#type-assertions), [TypeScript handbook, Erased types](https://www.typescriptlang.org/docs/handbook/2/basic-types.html#erased-types), [MDN, Response.json()](https://developer.mozilla.org/en-US/docs/Web/API/Response/json), [Zod, Basic usage](https://zod.dev/basics), [Zod, Objects](https://zod.dev/api#objects), [Zod Mini](https://zod.dev/packages/mini), [Valibot, Introduction](https://valibot.dev/guides/introduction/), [Valibot, Parse data](https://valibot.dev/guides/parse-data/), [Valibot, Infer types](https://valibot.dev/guides/infer-types/), [Valibot, Comparison](https://valibot.dev/guides/comparison/), [Standard Schema](https://standardschema.dev/schema), [npm, zod](https://www.npmjs.com/package/zod), [npm, valibot](https://www.npmjs.com/package/valibot), [npm download counts, 18 to 24 November 2026](https://api.npmjs.org/downloads/point/2026-11-18:2026-11-24/zod,valibot), [Zod, Refinements](https://zod.dev/api#refinements), [npm blog, How npm download counts work (2014)](https://blog.npmjs.org/post/92574016600/numeric-precision-matters-how-npm-download-counts-work.html).
+  </Fragment>
+</Chapter>
+
 <Quiz id="quiz" storageKey="web-platform-foundations">
   <Fragment slot="title">Eight questions.</Fragment>
   <Fragment slot="intro">
@@ -443,6 +507,7 @@ import QuizItem from '../components/QuizItem.astro';
   <QuizItem
     n="7"
     art="data"
+    href="#runtime-validation"
     question="Why can an app with correct TypeScript types still fail on an API response?"
     scenario="Your type says user.address.city is a string. The API team ships a change, and some users now have no address. TypeScript showed no errors. What happens in the browser?"
     options={[

@@ -5,16 +5,12 @@
 // Teaching model, simplified from the pixel pipeline on web.dev (Style, Layout, Paint,
 // Composite) with parsing added in front. Real browsers split these steps further.
 // Times are not measured: each step simply gets the same time in the animation.
-// Without JavaScript the finished first load shows, with its steps as text.
 import '../../styles/sim.css';
-import { RUNS, SCREEN, STAGES, STEP_TEXT, VERDICT } from './render-pipeline';
-
-const stages = STAGES;
-const [vBig, vUnit, vText, vTone] = VERDICT.load;
+import { STAGES as stages } from './render-pipeline';
 ---
 
 <div class="sx rp" data-rp>
-  <div class="sx-controls" data-js-only hidden>
+  <div class="sx-controls">
     <fieldset class="sx-ctl">
       <legend class="sx-label">What happens?</legend>
       <div class="sx-choices">
@@ -56,9 +52,9 @@ const [vBig, vUnit, vText, vTone] = VERDICT.load;
           <span class="rp-line" aria-hidden="true"></span>
           <span class="rp-line is-short" aria-hidden="true"></span>
         </div>
-        <p class="rp-status" data-status>{SCREEN.load.after.composite}</p>
+        <p class="rp-status" data-status></p>
       </div>
-      <div class="sx-bar" data-js-only hidden>
+      <div class="sx-bar">
         <button class="sx-btn" type="button" data-run>
           <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M5 3 17 10 5 17Z" fill="currentColor"></path></svg>
           Play the steps
@@ -71,7 +67,7 @@ const [vBig, vUnit, vText, vTone] = VERDICT.load;
       <ol class="rp-pipe">
         {
           stages.map((s, i) => (
-            <li class="rp-st" data-st={s.id} data-s={RUNS.load.includes(s.id) ? 'done' : 'skip'} style="--p: 1">
+            <li class="rp-st" data-st={s.id}>
               <svg class="rp-icon" viewBox="0 0 64 44" width="64" height="44" aria-hidden="true">
                 {s.id === 'parse' && (
                   <>
@@ -119,7 +115,7 @@ const [vBig, vUnit, vText, vTone] = VERDICT.load;
               <p class="rp-st-name"><span class="rp-st-n">{i + 1}</span> {s.name}</p>
               <p class="rp-st-makes"><span>{s.makes[0]}</span> <span>{s.makes[1]}</span></p>
               <span class="rp-bar" aria-hidden="true"><span></span></span>
-              <p class="rp-st-state" data-state>{RUNS.load.includes(s.id) ? 'ran' : 'skipped'}</p>
+              <p class="rp-st-state" data-state></p>
             </li>
           ))
         }
@@ -132,14 +128,12 @@ const [vBig, vUnit, vText, vTone] = VERDICT.load;
     </figure>
   </div>
 
-  <div class="sx-verdict is-on" aria-live="polite" data-verdict data-tone={vTone}>
-    <p class="sx-big">{vBig}</p>
-    <p class="sx-unit">{vUnit}</p>
-    <p class="sx-text">{vText}</p>
+  <div class="sx-verdict" aria-live="polite" data-verdict>
+    <p class="sx-big"></p>
+    <p class="sx-unit"></p>
+    <p class="sx-text"></p>
   </div>
-  <ol class="sx-steps" data-steps>
-    {stages.map((s, i) => <li><span class="sx-step-n">{i + 1}</span>{STEP_TEXT.load[s.id]}</li>)}
-  </ol>
+  <ol class="sx-steps" data-steps></ol>
 </div>
 
 <script>
@@ -221,9 +215,7 @@ const [vBig, vUnit, vText, vTone] = VERDICT.load;
     $('[data-run]').addEventListener('click', run);
     inputs.forEach((i) => i.addEventListener('change', run));
 
-    // Start from the finished first load, as rendered on the server. Nothing plays until asked.
-    for (const n of root.querySelectorAll<HTMLElement>('[data-js-only]')) n.hidden = false;
-    // The browser may restore a different choice on reload, so show its result too.
+    // Show the finished run of the current choice. Nothing plays until asked.
     build();
     frame(span);
     finish();

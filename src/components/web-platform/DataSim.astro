@@ -1,0 +1,536 @@
+---
+// Runtime validation scene: an order page reads an API response. The visitor picks
+// what the API sends and what the code does with it, and sees what survives the
+// build, what checks the data at run time, and what reaches the screen.
+// Data and text: data-sim.ts. Parts marked data-for show only for that code choice.
+import '../../styles/sim.css';
+import { FIELDS } from './data-sim';
+---
+
+<div class="sx dv" data-dv data-show="trust">
+  <div class="sx-controls dv-controls">
+    <fieldset class="sx-ctl">
+      <legend class="sx-label">What does the API send?</legend>
+      <div class="sx-choices">
+        <label class="sx-choice">
+          <input type="radio" name="dv-data" value="ok" data-data />
+          <span class="sx-choice-main">What the type says</span>
+          <span class="sx-choice-sub">total is a number</span>
+        </label>
+        <label class="sx-choice">
+          <input type="radio" name="dv-data" value="string" checked data-data />
+          <span class="sx-choice-main">total as text</span>
+          <span class="sx-choice-sub">"42.95" instead of 42.95</span>
+        </label>
+        <label class="sx-choice">
+          <input type="radio" name="dv-data" value="status" data-data />
+          <span class="sx-choice-main">A new status</span>
+          <span class="sx-choice-sub">"returned"</span>
+        </label>
+      </div>
+    </fieldset>
+    <fieldset class="sx-ctl">
+      <legend class="sx-label">What does the code do with it?</legend>
+      <div class="sx-choices">
+        <label class="sx-choice">
+          <input type="radio" name="dv-code" value="trust" checked data-code />
+          <span class="sx-choice-main">Trust the type</span>
+          <span class="sx-choice-sub"><code>as Order</code></span>
+        </label>
+        <label class="sx-choice">
+          <input type="radio" name="dv-code" value="schema" data-code />
+          <span class="sx-choice-main">Check with a schema</span>
+          <span class="sx-choice-sub">Zod, <code>Order.parse()</code></span>
+        </label>
+      </div>
+    </fieldset>
+  </div>
+
+  <figure class="dv-fig" data-fig data-stage="4">
+    <div class="dv-band dv-build" data-band="0">
+      <p class="dv-band-head"><span class="dv-band-n">1</span> Build <span class="dv-band-hint">TypeScript checks the code, then removes the types</span></p>
+      <div class="dv-code-card">
+        <p class="dv-file"><code>order.ts</code> → <code>order.js</code></p>
+        <pre class="dv-code" data-for="trust"><span class="dv-line is-del"><del><span class="visually-hidden">removed: </span>type Order = &#123;</del></span><span class="dv-line is-del"><del><span class="visually-hidden">removed: </span>  status: 'paid' | 'shipped' | 'delivered';</del></span><span class="dv-line is-del"><del><span class="visually-hidden">removed: </span>  total: number;</del></span><span class="dv-line is-del"><del><span class="visually-hidden">removed: </span>  shipping: number;</del></span><span class="dv-line is-del"><del><span class="visually-hidden">removed: </span>&#125;;</del></span><span class="dv-line">const order = (await res.json())<del><span class="visually-hidden">removed: </span> as Order</del>;</span><span class="dv-line">status.textContent = String(LABELS[order.status]);</span><span class="dv-line">price.textContent = `€$&#123;order.total + order.shipping&#125;`;</span></pre>
+        <pre class="dv-code" data-for="schema"><span class="dv-line">const Order = z.object(&#123;</span><span class="dv-line">  status: z.enum(['paid', 'shipped', 'delivered']),</span><span class="dv-line">  total: z.number(),</span><span class="dv-line">  shipping: z.number(),</span><span class="dv-line">&#125;);</span><span class="dv-line is-del"><del><span class="visually-hidden">removed: </span>type Order = z.infer&lt;typeof Order&gt;;</del></span><span class="dv-line">const order = Order.parse(await res.json());</span><span class="dv-line">status.textContent = String(LABELS[order.status]);</span><span class="dv-line">price.textContent = `€$&#123;order.total + order.shipping&#125;`;</span></pre>
+        <p class="dv-build-note"><span class="dv-zero">0 errors.</span> <span data-for="trust">The build removes every struck-out part. No Order type is left in the JavaScript.</span><span data-for="schema">The build removes the struck-out type. The schema is ordinary code, so it stays and runs.</span></p>
+      </div>
+    </div>
+
+    <div class="dv-band dv-run">
+      <p class="dv-band-head"><span class="dv-band-n">2</span> Run <span class="dv-band-hint">the response arrives in the browser</span></p>
+      <div class="dv-flow">
+        <div class="dv-node dv-json" data-band="1">
+          <p class="dv-node-name">API response</p>
+          <pre class="dv-code dv-json-code"><span>{'{'}</span>{FIELDS.map((f, i) => (
+            <span class="dv-field" data-field={f}>  "{f}": <span data-value></span>{i < FIELDS.length - 1 ? ',' : ''}<span class="dv-tag" data-tag hidden>changed</span></span>
+          ))}<span>{'}'}</span></pre>
+        </div>
+
+        <span class="dv-arrow" aria-hidden="true"></span>
+
+        <div class="dv-node dv-edge" data-band="2">
+          <p class="dv-node-name"><code data-for="trust">as Order</code><code data-for="schema">Order.parse()</code></p>
+          <p class="dv-edge-sub"><span data-for="trust">gone after the build: nothing runs here</span><span data-for="schema">checks every field while the page runs</span></p>
+          <ul class="dv-checks">
+            {FIELDS.map((f) => (
+              <li data-check={f}>
+                <span class="dv-mark" aria-hidden="true"></span>
+                <span><code>{f}</code>: <span data-check-text></span></span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <span class="dv-arrow" aria-hidden="true"></span>
+
+        <div class="dv-node dv-screen" data-band="3">
+          <p class="dv-node-name">Order page</p>
+          <div class="sx-screen dv-page" data-screen>
+            <p class="dv-order">Order #1042</p>
+            <div class="dv-ok" data-ok>
+              <p class="dv-row" data-row="status">Status: <strong data-status></strong></p>
+              <p class="dv-row" data-row="price">Total: <strong data-price></strong></p>
+            </div>
+            <p class="dv-error" data-error hidden>Sorry, we could not load this order. Please try again later.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <figcaption class="visually-hidden">
+      Two stages. First the build: TypeScript checks the code and removes the types. Then the run: the API response passes the edge of the app and reaches the order page. The numbered steps below describe it.
+    </figcaption>
+  </figure>
+
+  <div class="sx-bar dv-bar">
+    <button class="sx-btn" type="button" data-run>
+      <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M5 3 17 10 5 17Z" fill="currentColor"></path></svg>
+      Play the run
+    </button>
+    <p class="sx-note">Build first, then the run. The same code in both.</p>
+  </div>
+
+  <div class="sx-verdict" aria-live="polite" data-verdict>
+    <p class="sx-big"></p>
+    <p class="sx-unit"></p>
+    <p class="sx-text"></p>
+  </div>
+  <ol class="sx-steps" data-steps></ol>
+</div>
+
+<script>
+  import { play, reducedMotion, steps as makeSteps, verdict as makeVerdict } from '../../scripts/sim';
+  import { FIELDS, RESPONSE, SPAN, STEP, VERDICT, check, screen, steps, type Code, type Data } from './data-sim';
+
+  for (const root of document.querySelectorAll<HTMLElement>('[data-dv]')) {
+    const $ = <T extends Element = HTMLElement>(s: string) => root.querySelector<T>(s)!;
+    const picked = (name: string) => root.querySelector<HTMLInputElement>(`[name="${name}"]:checked`)!.value;
+    const fig = $('[data-fig]');
+    const build = $('.dv-build');
+    const stepList = makeSteps($('[data-steps]'));
+    const result = makeVerdict($('[data-verdict]'));
+    let stop = () => {};
+    let d: Data = 'string';
+    let c: Code = 'trust';
+
+    // Everything that depends on the choices, in its finished form.
+    const draw = () => {
+      d = picked('dv-data') as Data;
+      c = picked('dv-code') as Code;
+      root.dataset.show = c;
+      const { json, changed } = RESPONSE[d];
+      for (const f of FIELDS) {
+        const row = $(`[data-field="${f}"]`);
+        row.classList.toggle('is-changed', changed === f);
+        row.querySelector('[data-value]')!.textContent = json[f];
+        row.querySelector<HTMLElement>('[data-tag]')!.hidden = changed !== f;
+        const [ok, text] = check(d, c, f);
+        const li = $(`[data-check="${f}"]`);
+        li.className = ok === null ? 'is-skip' : ok ? 'is-ok' : 'is-fail';
+        li.querySelector('.dv-mark')!.textContent = ok === null ? '–' : ok ? '✓' : '✗';
+        li.querySelector('[data-check-text]')!.textContent = text;
+      }
+      $('.dv-edge').classList.toggle('is-schema', c === 'schema');
+      const page = screen(d, c);
+      $('[data-ok]').hidden = !page;
+      $('[data-error]').hidden = !!page;
+      $('[data-status]').textContent = page?.status ?? '';
+      $('[data-price]').textContent = page?.price ?? '';
+      $('[data-row="status"]').classList.toggle('is-wrong', page?.status === 'undefined');
+      $('[data-row="price"]').classList.toggle('is-wrong', page?.price === '€42.955');
+      stepList.set(steps(d, c));
+    };
+
+    // Which stage is lit, and how many fields the edge has checked so far.
+    const frame = (t: number) => {
+      const stage = Math.min(Math.floor(t / STEP), 4);
+      fig.dataset.stage = String(stage);
+      const checked = stage > 2 ? FIELDS.length : stage === 2 ? Math.floor((t - 2 * STEP) / (STEP / 4)) : 0;
+      FIELDS.forEach((f, i) => $(`[data-check="${f}"]`).classList.toggle('is-pending', i >= checked));
+      stepList.reveal([0, STEP, 2 * STEP, 3 * STEP], t);
+    };
+
+    const finish = () => {
+      fig.dataset.stage = '4';
+      result.show(...VERDICT[`${d}-${c}`]);
+    };
+
+    const run = () => {
+      stop();
+      result.hide();
+      draw();
+      // The run opens with the build. On a phone it can be above the view, so show it once.
+      if (!reducedMotion() && build.getBoundingClientRect().top < 0) build.scrollIntoView({ behavior: 'smooth' });
+      frame(0);
+      stop = play(SPAN, 1, frame, finish);
+    };
+
+    // A new choice shows its finished run at once. Only the button plays it.
+    const show = () => {
+      stop();
+      draw();
+      frame(SPAN);
+      finish();
+    };
+
+    $('[data-run]').addEventListener('click', run);
+    root.querySelectorAll('input').forEach((i) => i.addEventListener('change', show));
+    show();
+  }
+</script>
+
+<style is:global>
+  .dv .dv-controls {
+    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  }
+
+  /* WebKit stops matching :focus-visible after an arrow key moves between radios. */
+  .dv .sx-choice:focus-within {
+    outline: 3px solid var(--net);
+    outline-offset: 6px;
+  }
+
+  .dv .sx-choice-sub code {
+    font-size: 0.95em;
+  }
+
+  .dv .dv-fig {
+    display: grid;
+    gap: var(--space-5);
+    margin: 0;
+    font-size: var(--label);
+    line-height: var(--diagram-leading);
+  }
+
+  /* ---------- Bands: build, then run ---------- */
+  .dv .dv-band {
+    display: grid;
+    gap: var(--space-3);
+    transition: opacity 0.4s ease;
+  }
+
+  .dv .dv-band-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0 var(--space-2);
+    font-weight: 800;
+    font-size: 1.125rem;
+  }
+
+  .dv .dv-band-n {
+    font-weight: 850;
+    font-variation-settings: 'wdth' 125;
+  }
+
+  .dv .dv-band-hint {
+    color: var(--ink-2);
+    font-weight: 400;
+    font-size: var(--label);
+  }
+
+  .dv .dv-code-card,
+  .dv .dv-node {
+    display: grid;
+    gap: var(--space-2);
+    align-content: start;
+    min-width: 0;
+    padding: var(--space-3) var(--space-4);
+    border-radius: 12px;
+    box-shadow: inset 0 0 0 2px var(--ink);
+    transition: opacity 0.4s ease, box-shadow 0.3s ease;
+  }
+
+  .dv .dv-file,
+  .dv .dv-node-name {
+    color: var(--ink-2);
+    font-weight: 650;
+  }
+
+  .dv .dv-node-name code {
+    color: var(--ink);
+    font-size: 1.05em;
+    font-weight: 750;
+  }
+
+  .dv .dv-code {
+    margin: 0;
+    font-family: var(--font-code);
+    font-size: 0.875rem;
+    line-height: 1.55;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  /* A wrapped line keeps a hanging indent, so it still reads as one line. */
+  .dv .dv-line {
+    display: block;
+    padding-inline: calc(6px + 2ch) 6px;
+    text-indent: -2ch;
+    border-left: 3px solid transparent;
+  }
+
+  /* Removed by the build: struck out, faded and marked in the gutter. Not colour alone. */
+  .dv .dv-code del {
+    color: var(--ink-3);
+    text-decoration-thickness: 2px;
+  }
+
+  .dv .dv-line.is-del {
+    border-left-color: var(--ink-3);
+  }
+
+  .dv .dv-build-note {
+    color: var(--ink-2);
+  }
+
+  .dv .dv-zero {
+    color: var(--good);
+    font-weight: 750;
+  }
+
+  /* ---------- Run: response → edge → page ---------- */
+  .dv .dv-flow {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 2.5rem minmax(0, 1.15fr) 2.5rem minmax(0, 1fr);
+    align-items: stretch;
+  }
+
+  .dv .dv-json {
+    box-shadow: inset 0 0 0 2px var(--net);
+  }
+
+  .dv .dv-field {
+    display: block;
+    border-left: 3px solid transparent;
+  }
+
+  .dv .dv-field.is-changed {
+    border-left: 5px solid var(--ink);
+    background: color-mix(in srgb, var(--ink) 8%, var(--paper));
+    font-weight: 700;
+  }
+
+  .dv .dv-tag {
+    margin-left: 0.5em;
+    padding: 0 5px;
+    border-radius: 5px;
+    background: var(--ink);
+    color: var(--paper);
+    font-family: var(--font-body);
+    font-size: 0.8125rem;
+    font-weight: 700;
+  }
+
+  .dv .dv-tag[hidden] {
+    display: none;
+  }
+
+  .dv .dv-arrow {
+    position: relative;
+    align-self: center;
+    justify-self: center;
+    width: 100%;
+    height: 2px;
+    background: var(--ink-2);
+  }
+
+  .dv .dv-arrow::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    top: -6px;
+    border: 7px solid transparent;
+    border-right: 0;
+    border-left: 10px solid var(--ink-2);
+  }
+
+  .dv[data-show='trust'] [data-for='schema'],
+  .dv[data-show='schema'] [data-for='trust'] {
+    display: none;
+  }
+
+  /* The edge: an open, dashed gate when nothing checks; a solid one when a schema checks. */
+  .dv .dv-edge:not(.is-schema) {
+    box-shadow: none;
+    outline: 2px dashed var(--ink-3);
+    outline-offset: -2px;
+  }
+
+  .dv .dv-edge:not(.is-schema) .dv-node-name code {
+    color: var(--ink-3);
+    text-decoration: line-through;
+    text-decoration-thickness: 2px;
+  }
+
+  .dv .dv-edge.is-schema {
+    box-shadow: inset 0 0 0 4px var(--ink);
+  }
+
+  .dv .dv-edge-sub {
+    color: var(--ink-2);
+  }
+
+  .dv .dv-checks {
+    display: grid;
+    gap: var(--space-1);
+    margin: var(--space-1) 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .dv .dv-checks li {
+    display: grid;
+    grid-template-columns: 1.4em minmax(0, 1fr);
+    overflow-wrap: anywhere;
+    transition: opacity 0.25s ease;
+  }
+
+  .dv .dv-mark {
+    font-weight: 850;
+  }
+
+  .dv .dv-checks .is-ok .dv-mark { color: var(--good); }
+  .dv .dv-checks .is-skip { color: var(--ink-3); }
+
+  .dv .dv-checks .is-fail {
+    color: var(--bad);
+    font-weight: 700;
+  }
+
+  .dv .dv-checks li.is-pending {
+    opacity: 0;
+  }
+
+  /* The order page: the mock screen is the node's frame. */
+  .dv .dv-node.dv-screen {
+    padding: 0;
+    box-shadow: none;
+  }
+
+  .dv .dv-page {
+    min-height: 0;
+    gap: var(--space-2);
+    padding: 30px var(--space-3) var(--space-3);
+  }
+
+  .dv .dv-order {
+    font-weight: 750;
+  }
+
+  .dv .dv-ok {
+    display: grid;
+    gap: var(--space-1);
+  }
+
+  .dv .dv-ok[hidden],
+  .dv .dv-error[hidden] {
+    display: none;
+  }
+
+  .dv .dv-row strong {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Wrong on screen: thick underline and colour, not colour alone. */
+  .dv .dv-row.is-wrong strong {
+    color: var(--bad);
+    text-decoration: underline wavy var(--bad);
+    text-decoration-thickness: 2px;
+    text-underline-offset: 4px;
+  }
+
+  .dv .dv-error {
+    padding-left: var(--space-2);
+    border-left: 4px solid var(--warn);
+  }
+
+  .dv .dv-bar {
+    justify-content: center;
+  }
+
+  /* ---------- Stages while the run plays ---------- */
+  .dv .dv-fig[data-stage='0'] [data-band='1'],
+  .dv .dv-fig[data-stage='0'] [data-band='2'],
+  .dv .dv-fig[data-stage='0'] [data-band='3'],
+  .dv .dv-fig[data-stage='1'] [data-band='2'],
+  .dv .dv-fig[data-stage='1'] [data-band='3'],
+  .dv .dv-fig[data-stage='2'] [data-band='3'] {
+    opacity: 0.18;
+  }
+
+  .dv .dv-fig:not([data-stage='4']) .dv-build {
+    opacity: 0.45;
+  }
+
+  .dv .dv-fig[data-stage='0'] .dv-build {
+    opacity: 1;
+  }
+
+  /* ---------- Narrow screens: the run flows down ---------- */
+  @media (max-width: 62rem) {
+    .dv .dv-controls {
+      grid-template-columns: 1fr;
+    }
+
+    .dv .dv-flow {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: auto 2.25rem auto 2.25rem auto;
+    }
+
+    .dv .dv-arrow {
+      width: 2px;
+      height: 100%;
+    }
+
+    .dv .dv-arrow::after {
+      right: -6px;
+      top: auto;
+      bottom: 0;
+      border: 7px solid transparent;
+      border-bottom: 0;
+      border-top: 10px solid var(--ink-2);
+    }
+
+    .dv .dv-code-card,
+    .dv .dv-node {
+      padding: var(--space-3);
+    }
+  }
+
+  /* "undefined" and "€42.955" are long words: keep them inside a 320 px screen. */
+  @media (max-width: 26rem) {
+    .dv .sx-big {
+      font-size: 2.5rem;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .dv .dv-band,
+    .dv .dv-code-card,
+    .dv .dv-node,
+    .dv .dv-checks li {
+      transition: none;
+    }
+  }
+</style>

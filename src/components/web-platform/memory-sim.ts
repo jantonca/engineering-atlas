@@ -1,5 +1,4 @@
-// Model and text for the memory leak scene. Shared by the server-rendered default
-// state (works without JavaScript) and the interactive script.
+// Model and text for the memory leak scene.
 // Teaching model, simplified: the user opens and closes tickets 1 to 3, then opens
 // ticket 4. Each open view has a timer that updates "updated 2 min ago". The garbage
 // collector marks everything it can reach from the roots and frees the rest.

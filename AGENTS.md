@@ -11,6 +11,7 @@ Build a visually striking personal engineering study site. Make complex ideas ea
 
 ## Keep it small
 
+- Keep everything small and simple. Do not overengineer.
 - Use Astro, static output, Markdown/MDX and Cloudflare Workers Static Assets. Build navigation, search (Pagefind), table of contents and theme controls as small, accessible Astro components.
 - Prefer Astro components, CSS custom properties and native HTML. Use client JavaScript wherever it makes a lesson clearer or more engaging. Add a framework or library only when it solves a current need; animation, graphics and diagram libraries are fine when a scene needs them.
 - Reuse existing patterns and keep components focused. Extract genuine repetition, not speculative abstractions. Justify each added dependency; avoid unrelated upgrades.

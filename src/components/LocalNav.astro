@@ -36,13 +36,6 @@ const { title, items } = Astro.props;
         <path d="M2 4.5 6 8.5 10 4.5" fill="none" stroke="currentColor" stroke-width="2"></path>
       </svg>
     </button>
-    <!-- Without JavaScript: a link to the contents list in the page, which scrolls away once a link is followed. -->
-    <a class="ln-jump" href="#contents">
-      Contents
-      <svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true">
-        <path d="M2 4.5 6 8.5 10 4.5" fill="none" stroke="currentColor" stroke-width="2"></path>
-      </svg>
-    </a>
   </div>
 </nav>
 
@@ -101,7 +94,6 @@ const { title, items } = Astro.props;
   );
   update();
 
-  // The Contents menu is the default, so the page never overflows without JavaScript.
   // Show the full list only when it fits on one line, whatever the number of chapters.
   const inner = nav?.querySelector<HTMLElement>('.ln-inner');
   const fit = () => {
@@ -184,8 +176,7 @@ const { title, items } = Astro.props;
     font-variation-settings: 'wdth' 125;
   }
 
-  .ln-toggle,
-  .ln-jump {
+  .ln-toggle {
     display: none;
     align-items: center;
     gap: var(--space-2);
@@ -196,10 +187,6 @@ const { title, items } = Astro.props;
     color: var(--ink);
     font-size: var(--text-small);
     cursor: pointer;
-  }
-
-  .ln-jump {
-    text-decoration: none;
   }
 
   .ln-toggle span {
@@ -243,10 +230,7 @@ const { title, items } = Astro.props;
     display: none;
   }
 
-  /* The menu button needs JavaScript to close after a link is followed.
-     The inline script in Base.astro sets data-js before the first paint. */
-  :global(:root[data-js]) .localnav.is-compact .ln-toggle,
-  :global(:root:not([data-js])) .ln-jump {
+  .localnav.is-compact .ln-toggle {
     display: inline-flex;
   }
 
@@ -268,7 +252,7 @@ const { title, items } = Astro.props;
       display: none;
     }
 
-    :global(:root[data-js]) .ln-toggle {
+    .ln-toggle {
       display: inline-flex;
     }
   }

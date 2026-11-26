@@ -2,17 +2,10 @@
 // Memory leak scene: a support inbox. Each ticket view has a timer that updates
 // "updated 2 min ago". The visitor picks what happens when a ticket closes and sees
 // what the garbage collector can still reach from the roots.
-// Without JavaScript the finished default run shows, with its steps as text.
-// Model and text: memory-sim.ts.
+// Model and text: memory-sim.ts. The script draws everything that depends on the choice.
 import '../../styles/sim.css';
-import { ROOT_NAMES, ROOT_SUBS, VIEWS, counts, simulate, stateText, stepsFor, verdictFor, type Root } from './memory-sim';
+import { ROOT_NAMES, VIEWS, type Root } from './memory-sim';
 
-const MODE = 'none';
-const sim = simulate(MODE);
-const snap = sim[sim.length - 1];
-const steps = stepsFor(MODE);
-const [vBig, vUnit, vText, vTone] = verdictFor(MODE);
-const { inMemory, detached } = counts(snap);
 const ROOTS: Root[] = ['doc', 'timers', 'cache'];
 const TICKETS = ['Login fails', 'Invoice missing', 'Printer offline', 'Refund request'];
 // Edge end points, as a share of the graph's height. Rows have equal height.
@@ -21,11 +14,10 @@ const ROOT_Y: Record<Root, number> = { doc: 12.5, timers: 50, cache: 87.5 };
 const END: Record<Root, number> = { doc: -5, timers: 0, cache: 5 };
 const viewY = (i: number, r: Root) => 12.5 + i * 25 + END[r];
 const views = [...Array(VIEWS).keys()];
-const refTone = (r: Root, i: number) => (snap.views[i] === 'held' ? 'is-bad' : r === 'doc' ? 'is-doc' : '');
 ---
 
 <div class="sx mem" data-mem>
-  <div class="sx-controls mem-controls" data-js-only hidden>
+  <div class="sx-controls mem-controls">
     <fieldset class="sx-ctl">
       <legend class="sx-label">What does the code do when a ticket closes?</legend>
       <div class="sx-choices">
@@ -54,18 +46,18 @@ const refTone = (r: Root, i: number) => (snap.views[i] === 'held' ? 'is-bad' : r
         <p class="sx-screen-name">A support inbox</p>
         <ul class="mem-inbox">
           {TICKETS.map((name, i) => (
-            <li class={snap.views[i] === 'open' ? 'is-open' : ''} data-ticket={i}>
+            <li data-ticket={i}>
               <span class="mem-ticket">{name}</span>
-              <span class="mem-ago">{snap.views[i] === 'open' ? 'updated 2 min ago' : ''}</span>
+              <span class="mem-ago"></span>
             </li>
           ))}
         </ul>
         <p class="mem-readout" data-readout>
-          In memory: <strong data-in-memory>{inMemory}</strong> ticket views,{' '}
-          <strong data-detached>{detached}</strong> detached
+          In memory: <strong data-in-memory></strong> ticket views,{' '}
+          <strong data-detached></strong> detached
         </p>
       </div>
-      <div class="sx-bar" data-js-only hidden>
+      <div class="sx-bar">
         <button class="sx-btn" type="button" data-run>
           <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M5 3 17 10 5 17Z" fill="currentColor"></path></svg>
           Play the run
@@ -83,12 +75,8 @@ const refTone = (r: Root, i: number) => (snap.views[i] === 'held' ? 'is-bad' : r
         {ROOTS.map((r) => (
           <div class={`mem-root mem-root-${r}`} data-root={r}>
             <p class="mem-name"><code>{ROOT_NAMES[r]}</code></p>
-            <p class="mem-sub" data-root-sub>{r === 'cache' ? 'not used' : ROOT_SUBS[r]}</p>
-            {r !== 'doc' && (
-              <p class="mem-chips" data-chips>
-                {snap.refs[r].map((i) => <span>{r === 'timers' ? `timer ${i + 1}` : `view ${i + 1}`}</span>)}
-              </p>
-            )}
+            <p class="mem-sub" data-root-sub></p>
+            {r !== 'doc' && <p class="mem-chips" data-chips></p>}
           </div>
         ))}
 
@@ -103,24 +91,15 @@ const refTone = (r: Root, i: number) => (snap.views[i] === 'held' ? 'is-bad' : r
           </defs>
           {ROOTS.map((r) =>
             views.map((i) => (
-              <line
-                class={`mem-edge ${refTone(r, i)}`}
-                data-edge={`${r}-${i}`}
-                x1="0"
-                y1={`${ROOT_Y[r]}%`}
-                x2="100%"
-                y2={`${viewY(i, r)}%`}
-                marker-end={snap.views[i] === 'held' ? 'url(#mem-arrow-bad)' : 'url(#mem-arrow)'}
-                visibility={snap.refs[r].includes(i) ? 'visible' : 'hidden'}
-              />
+              <line class="mem-edge" data-edge={`${r}-${i}`} x1="0" y1={`${ROOT_Y[r]}%`} x2="100%" y2={`${viewY(i, r)}%`} visibility="hidden" />
             )),
           )}
         </svg>
 
         {views.map((i) => (
-          <div class={`mem-view is-${snap.views[i]}`} data-view={i} style={`grid-row: ${i + 1}`}>
+          <div class="mem-view" data-view={i} style={`grid-row: ${i + 1}`}>
             <p class="mem-name">View {i + 1}</p>
-            <p class="mem-state" data-state>{stateText(snap, i)}</p>
+            <p class="mem-state" data-state></p>
           </div>
         ))}
       </div>
@@ -131,14 +110,12 @@ const refTone = (r: Root, i: number) => (snap.views[i] === 'held' ? 'is-bad' : r
     </figure>
   </div>
 
-  <div class="sx-verdict is-on" aria-live="polite" data-verdict data-tone={vTone}>
-    <p class="sx-big">{vBig}</p>
-    <p class="sx-unit">{vUnit}</p>
-    <p class="sx-text">{vText}</p>
+  <div class="sx-verdict" aria-live="polite" data-verdict>
+    <p class="sx-big"></p>
+    <p class="sx-unit"></p>
+    <p class="sx-text"></p>
   </div>
-  <ol class="sx-steps" data-steps>
-    {steps.map((s, i) => <li><span class="sx-step-n">{i + 1}</span>{s.text}</li>)}
-  </ol>
+  <ol class="sx-steps" data-steps></ol>
 </div>
 
 <script>
@@ -245,9 +222,7 @@ const refTone = (r: Root, i: number) => (snap.views[i] === 'held' ? 'is-bad' : r
     $('[data-run]').addEventListener('click', run);
     modeInputs.forEach((i) => i.addEventListener('change', show));
 
-    // Start from the finished run, as rendered on the server. Nothing plays until asked.
-    for (const n of root.querySelectorAll<HTMLElement>('[data-js-only]')) n.hidden = false;
-    // The browser may restore a different choice on reload, so show its result too.
+    // Show the finished run of the current choice. Nothing plays until asked.
     show();
   }
 </script>

@@ -2,21 +2,13 @@
 // Web worker scene: the user drops a 40 MB CSV file and types in a search box
 // while the page parses it. The visitor picks where the parsing runs (one block on
 // the main thread, small pieces, or a web worker) and what the worker sends back.
-// Without JavaScript the finished default run shows, with its steps as text.
-// Model and text: worker-sim.ts.
+// Model and text: worker-sim.ts. The script draws everything that depends on the choices.
 import '../../styles/sim.css';
-import { SPAN, WORD, simulate, stepsFor, verdictFor } from './worker-sim';
-
-const sim = simulate('block', 'screen');
-const steps = stepsFor(sim);
-const [vBig, vUnit, vText, vTone] = verdictFor(sim);
-// Wait bars stop where the next key press starts, so overlapping waits never stack.
-const waitEnd = (i: number) => Math.min(sim.keys[i].start, sim.keys[i + 1]?.at ?? Infinity);
-const pos = (start: number, end: number) => `left: ${(start / SPAN) * 100}%; width: ${(Math.max(end - start, 0) / SPAN) * 100}%`;
+import { WORD } from './worker-sim';
 ---
 
 <div class="sx wk" data-wk>
-  <div class="sx-controls" data-js-only hidden>
+  <div class="sx-controls">
     <fieldset class="sx-ctl">
       <legend class="sx-label">Where does the parsing run?</legend>
       <div class="sx-choices">
@@ -60,13 +52,13 @@ const pos = (start: number, end: number) => `left: ${(start / SPAN) * 100}%; wid
     <div class="sx-side">
       <div class="sx-screen" data-screen>
         <p class="sx-screen-name">A CSV viewer</p>
-        <p class="wk-box"><span data-typed>{WORD.slice(0, sim.keys.length)}</span><span class="wk-caret" aria-hidden="true"></span></p>
-        <p class="wk-status" data-status>500,000 rows. The table shows the first 50.</p>
+        <p class="wk-box"><span data-typed></span><span class="wk-caret" aria-hidden="true"></span></p>
+        <p class="wk-status" data-status></p>
         <ul class="wk-rows" data-rows aria-hidden="true">
           <li></li><li></li><li></li>
         </ul>
       </div>
-      <div class="sx-bar" data-js-only hidden>
+      <div class="sx-bar">
         <button class="sx-btn" type="button" data-run>
           <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M5 3 17 10 5 17Z" fill="currentColor"></path></svg>
           Play the run
@@ -78,28 +70,15 @@ const pos = (start: number, end: number) => `left: ${(start / SPAN) * 100}%; wid
     <figure class="sx-tl" data-tl>
       <div class="sx-lane">
         <p class="sx-lane-name">You type “{WORD}”</p>
-        <div class="sx-track wk-tall" data-track="keys">
-          {sim.keys.map((k, i) => (
-            <>
-              <span class="sx-block is-wait" style={pos(k.at, waitEnd(i))}></span>
-              <span class="sx-dot" style={`left: ${(k.at / SPAN) * 100}%`}></span>
-            </>
-          ))}
-        </div>
+        <div class="sx-track wk-tall" data-track="keys"></div>
       </div>
       <div class="sx-lane">
         <p class="sx-lane-name">Main thread: your code, the page and every key press</p>
-        <div class="sx-track wk-tall" data-track="main">
-          {sim.blocks.map((b) => (
-            <span class={`sx-block ${b.kind === 'key' ? 'is-good wk-key' : b.end - b.start > 50 ? 'is-bad' : ''}`} style={pos(b.start, b.end)}></span>
-          ))}
-        </div>
+        <div class="sx-track wk-tall" data-track="main"></div>
       </div>
       <div class="sx-lane">
         <p class="sx-lane-name">Worker thread: no access to the page</p>
-        <div class="sx-track wk-tall" data-track="worker">
-          <span class="sx-tag wk-idle" style="left: 0">not used</span>
-        </div>
+        <div class="sx-track wk-tall" data-track="worker"></div>
       </div>
       <div class="sx-axis" aria-hidden="true">
         <span style="left: 0">0</span><span style="left: 25%">600</span><span style="left: 50%">1200</span>
@@ -117,14 +96,12 @@ const pos = (start: number, end: number) => `left: ${(start / SPAN) * 100}%; wid
     </figure>
   </div>
 
-  <div class="sx-verdict is-on" aria-live="polite" data-verdict data-tone={vTone}>
-    <p class="sx-big">{vBig}</p>
-    <p class="sx-unit">{vUnit}</p>
-    <p class="sx-text">{vText}</p>
+  <div class="sx-verdict" aria-live="polite" data-verdict>
+    <p class="sx-big"></p>
+    <p class="sx-unit"></p>
+    <p class="sx-text"></p>
   </div>
-  <ol class="sx-steps" data-steps>
-    {steps.map((s, i) => <li><span class="sx-step-n">{i + 1}</span>{s.text}</li>)}
-  </ol>
+  <ol class="sx-steps" data-steps></ol>
 </div>
 
 <script>
@@ -303,9 +280,7 @@ const pos = (start: number, end: number) => `left: ${(start / SPAN) * 100}%; wid
     $('[data-run]').addEventListener('click', run);
     [...modeInputs, ...backInputs].forEach((i) => i.addEventListener('change', show));
 
-    // Start from the finished run, as rendered on the server. Nothing plays until asked.
-    for (const n of root.querySelectorAll<HTMLElement>('[data-js-only]')) n.hidden = false;
-    // The browser may restore a different choice on reload, so show its result too.
+    // Show the finished run of the current choices. Nothing plays until asked.
     show();
     onResize(root, () => {
       draw();

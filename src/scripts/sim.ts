@@ -67,7 +67,8 @@ export const play = (span: number, slow: number, onTime: (t: number) => void, on
   let raf = 0;
   const start = performance.now();
   const tick = (now: number) => {
-    const t = Math.min((now - start) / slow, span);
+    // The first frame's timestamp can be earlier than `start` (seen in Firefox), so clamp at 0.
+    const t = Math.min(Math.max((now - start) / slow, 0), span);
     onTime(t);
     if (t < span) raf = requestAnimationFrame(tick);
     else onEnd();
