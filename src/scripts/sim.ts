@@ -1,10 +1,7 @@
-// Small helpers shared by the timeline simulators.
-
 export type Tone = 'good' | 'warn' | 'bad' | 'net';
 
 export const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-/** Place an element on a track: `left` and `width` as percentages of the span. */
 export const place = (el: HTMLElement, start: number, end: number, span: number) => {
   el.style.left = `${(start / span) * 100}%`;
   el.style.width = `${(Math.max(end - start, 0) / span) * 100}%`;
@@ -17,9 +14,7 @@ export const el = (tag: string, className: string, text?: string) => {
   return node;
 };
 
-/** Numbered steps: the text version of the animation. */
 export const steps = (list: HTMLElement) => ({
-  clear: () => list.replaceChildren(),
   set: (lines: string[]) =>
     list.replaceChildren(
       ...lines.map((line, i) => {
@@ -28,7 +23,6 @@ export const steps = (list: HTMLElement) => ({
         return li;
       }),
     ),
-  /** Highlight the steps that have happened by time `t`. */
   reveal: (times: number[], t: number) => {
     [...list.children].forEach((li, i) => {
       const done = times[i] <= t;
@@ -77,8 +71,7 @@ export const play = (span: number, slow: number, onTime: (t: number) => void, on
   return () => cancelAnimationFrame(raf);
 };
 
-/** Run `fn` once when `target` is mostly on screen. */
-export const whenVisible = (target: Element, fn: () => void) => {
+export const whenVisible = (target: Element, fn: () => void, threshold = 0.5) => {
   const io = new IntersectionObserver(
     (entries) => {
       if (entries.some((e) => e.isIntersecting)) {
@@ -86,7 +79,7 @@ export const whenVisible = (target: Element, fn: () => void) => {
         fn();
       }
     },
-    { threshold: 0.5 },
+    { threshold },
   );
   io.observe(target);
 };
@@ -103,7 +96,6 @@ export const fitLabel = (label: HTMLElement, bar: HTMLElement, texts: string[]) 
   label.remove();
 };
 
-/** Call `fn` after the element changes width. */
 export const onResize = (target: Element, fn: () => void) => {
   let w = 0;
   let timer = 0;
