@@ -1,6 +1,6 @@
 // The 18 guides in study order, from docs/plan.md.
 // `href` is set only when a page exists, so menus never link to missing pages.
-export interface Guide {
+interface Guide {
   number: string;
   title: string;
   href?: string;
