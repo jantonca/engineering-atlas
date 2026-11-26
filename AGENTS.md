@@ -11,7 +11,7 @@ Build a visually striking personal engineering study site. Make complex ideas ea
 
 ## Keep it small
 
-- Keep one responsibility per component or module. When a file grows, check for repeated markup, state transitions and styles before splitting it.
+- Keep one responsibility per component or module. When a file exceeds 500 lines, review it for repeated markup, state transitions and styles. Split it when a distinct responsibility has a clear home.
 - Start simulator controls and results with the existing styles in `src/styles/sim.css` and functions in `src/scripts/sim.ts`. Keep scene-specific layout and timing with the scene.
 - Before deleting a selector or export, check its references in templates, scripts and generated class names. Keep comments that explain a browser quirk, a teaching assumption or another non-obvious decision.
 - Use Astro, static output, Markdown/MDX and Cloudflare Workers Static Assets. Build navigation, search (Pagefind), table of contents and theme controls as small, accessible Astro components.
