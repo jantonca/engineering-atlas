@@ -1,18 +1,14 @@
-// Model and text for the memory leak scene.
-// Teaching model, simplified: the user opens and closes tickets 1 to 3, then opens
-// ticket 4. Each open view has a timer that updates "updated 2 min ago". The garbage
-// collector marks everything it can reach from the roots and frees the rest.
 // Real engines decide when to collect; here a collection runs after each close.
 import type { Tone } from '../../scripts/sim';
 
 export type Mode = 'none' | 'clear' | 'cache';
 export type Root = 'doc' | 'timers' | 'cache';
-export type State = 'new' | 'open' | 'held' | 'garbage' | 'freed';
+type State = 'new' | 'open' | 'held' | 'garbage' | 'freed';
 type Kind = 'open' | 'close' | 'gc';
 
 export const VIEWS = 4;
-export const STEP = 900; // ms of animation per event
-export const EVENTS: { kind: Kind; view: number }[] = [
+const STEP = 900; // ms of animation per event
+const EVENTS: { kind: Kind; view: number }[] = [
   { kind: 'open', view: 0 },
   { kind: 'close', view: 0 },
   { kind: 'gc', view: 0 },
@@ -27,22 +23,18 @@ export const EVENTS: { kind: Kind; view: number }[] = [
 export const SPAN = EVENTS.length * STEP;
 
 export interface Snapshot {
-  /** Which event this snapshot follows; -1 is before the run. */
-  at: number;
   kind: Kind | 'start';
   views: State[];
-  /** References from each root to views. */
   refs: Record<Root, number[]>;
 }
 
-/** Every reachable view, starting from the roots. */
 const reachable = (refs: Snapshot['refs']) => new Set(Object.values(refs).flat());
 
 export const simulate = (mode: Mode): Snapshot[] => {
   const views: State[] = Array(VIEWS).fill('new');
   const refs: Record<Root, number[]> = { doc: [], timers: [], cache: [] };
-  const out: Snapshot[] = [{ at: -1, kind: 'start', views: [...views], refs: { doc: [], timers: [], cache: [] } }];
-  EVENTS.forEach((ev, at) => {
+  const out: Snapshot[] = [{ kind: 'start', views: [...views], refs: { doc: [], timers: [], cache: [] } }];
+  EVENTS.forEach((ev) => {
     const v = ev.view;
     if (ev.kind === 'open') {
       views[v] = 'open';
@@ -54,20 +46,18 @@ export const simulate = (mode: Mode): Snapshot[] => {
       refs.doc = refs.doc.filter((x) => x !== v);
       if (mode !== 'none') refs.timers = refs.timers.filter((x) => x !== v);
     }
-    // Off the page: still reachable, or waiting for the next collection.
     const live = reachable(refs);
     views.forEach((s, i) => {
       if (s === 'freed' || s === 'new' || refs.doc.includes(i)) return;
       views[i] = live.has(i) ? 'held' : ev.kind === 'gc' ? 'freed' : 'garbage';
     });
-    out.push({ at, kind: ev.kind, views: [...views], refs: { doc: [...refs.doc], timers: [...refs.timers], cache: [...refs.cache] } });
+    out.push({ kind: ev.kind, views: [...views], refs: { doc: [...refs.doc], timers: [...refs.timers], cache: [...refs.cache] } });
   });
   return out;
 };
 
 export type Sim = Snapshot[];
 
-/** The snapshot to show at time t of the run. */
 export const snapshotAt = (sim: Sim, t: number) => sim[Math.min(Math.floor(t / STEP) + 1, sim.length - 1)];
 
 export const ROOT_NAMES: Record<Root, string> = {
@@ -89,7 +79,6 @@ const who = (snap: Snapshot, i: number) => {
   return by.join(' and ');
 };
 
-/** The state line under each view in the graph. */
 export const stateText = (snap: Snapshot, i: number) => {
   switch (snap.views[i]) {
     case 'new':
@@ -129,7 +118,6 @@ const last: Record<Mode, string> = {
   cache: 'You open ticket 4. The cache holds all four views. Three are detached and one is still on the page. The cache grows with every new ticket.',
 };
 
-/** Numbered steps with the time at which each one happens. */
 export const stepsFor = (mode: Mode) => [
   {
     t: 0,
