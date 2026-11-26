@@ -1,6 +1,4 @@
 ---
-// The guide's quiz: one question at a time, real progress, a summary at the end.
-// "Ask me again later" marks are kept in this browser only.
 interface Props {
   id: string;
   storageKey: string;
@@ -25,7 +23,7 @@ const { id, storageKey } = Astro.props;
     <ol data-progress></ol>
   </nav>
 
-  <ol class="qz-list" data-list>
+  <ol class="qz-list">
     <slot />
   </ol>
 
@@ -51,8 +49,9 @@ const { id, storageKey } = Astro.props;
 </section>
 
 <script>
-  const smooth = (): ScrollBehavior =>
-    window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
+  import { reducedMotion } from '../scripts/sim';
+
+  const smooth = (): ScrollBehavior => reducedMotion() ? 'auto' : 'smooth';
 
   for (const root of document.querySelectorAll<HTMLElement>('[data-quiz]')) {
     const $ = <T extends Element = HTMLElement>(s: string) => root.querySelector<T>(s)!;
@@ -76,17 +75,15 @@ const { id, storageKey } = Astro.props;
       } catch {}
     };
 
-    let flags = new Set(load());
+    const flags = new Set(load());
     let items = all;
     let index = 0;
 
-    // Progress: one numbered step per question, showing real answers only.
     const steps = all.map((item) => {
       const li = document.createElement('li');
       const b = document.createElement('button');
       b.type = 'button';
       b.className = 'qz-step';
-      b.dataset.n = item.dataset.n;
       b.addEventListener('click', () => {
         if (!items.includes(item)) items = all;
         show(items.indexOf(item));
@@ -126,11 +123,9 @@ const { id, storageKey } = Astro.props;
       if (focus) items[index].querySelector<HTMLElement>('.qz-question')!.focus({ preventScroll: true });
     };
 
-    // A short route back for returning learners: practise the questions marked earlier.
     const practice = $('[data-practice]');
     const paintPractice = () => {
-      const practising = items !== all;
-      practice.hidden = flags.size === 0 || practising || !summary.hidden;
+      practice.hidden = flags.size === 0 || items !== all || !summary.hidden;
       const k = flags.size;
       $('[data-practice-text]').textContent = `You marked ${k} question${k === 1 ? '' : 's'} to ask again.`;
     };
@@ -187,25 +182,21 @@ const { id, storageKey } = Astro.props;
         delete o.dataset.state;
         o.querySelector('[data-mark]')!.textContent = '';
       });
-      item.querySelector<HTMLElement>('[data-feedback]')!.hidden = true;
-      // The full answer and the follow-up appear only after a choice.
       item.querySelectorAll('details').forEach((d) => (d.open = false));
-      item.querySelector<HTMLElement>('[data-full]')!.hidden = true;
-      const ev = item.querySelector<HTMLElement>('[data-evidence]');
-      if (ev) ev.hidden = true;
       item.querySelectorAll<HTMLInputElement>('.qz-point input').forEach((c) => (c.checked = false));
       setStage(item, 'ask');
     };
 
-    // Stages: ask (question alone) → recall (key points) → case → answered.
-    const setStage = (item: HTMLElement, stage: 'ask' | 'recall' | 'case') => {
-      item.dataset.stage = stage;
+    const setStage = (item: HTMLElement, stage: 'ask' | 'recall' | 'case' | 'answered') => {
       item.querySelector<HTMLElement>('[data-ask]')!.hidden = stage !== 'ask';
       if (stage === 'ask') delete item.dataset.recalled;
       if (stage === 'recall') item.dataset.recalled = '';
       item.querySelector<HTMLElement>('[data-recall]')!.hidden = !('recalled' in item.dataset);
       item.querySelector<HTMLElement>('[data-to-case]')!.hidden = stage !== 'recall';
-      item.querySelector<HTMLElement>('[data-case]')!.hidden = stage !== 'case';
+      item.querySelector<HTMLElement>('[data-case]')!.hidden = stage === 'ask' || stage === 'recall';
+      for (const section of item.querySelectorAll<HTMLElement>('[data-feedback], [data-full], [data-evidence]')) {
+        section.hidden = stage !== 'answered';
+      }
     };
 
     for (const item of all) {
@@ -243,10 +234,7 @@ const { id, storageKey } = Astro.props;
               x.querySelector('[data-mark]')!.textContent = '✗ Your answer';
             }
           });
-          feedback.hidden = false;
-          item.querySelector<HTMLElement>('[data-full]')!.hidden = false;
-          const ev = item.querySelector<HTMLElement>('[data-evidence]');
-          if (ev) ev.hidden = false;
+          setStage(item, 'answered');
           const v = feedback.querySelector<HTMLElement>('[data-verdict]')!;
           v.textContent = right ? 'Right.' : `Not quite. The answer is ${'ABCD'[correct]}.`;
           v.dataset.state = right ? 'right' : 'wrong';
@@ -272,28 +260,21 @@ const { id, storageKey } = Astro.props;
 
     $('[data-prev]').addEventListener('click', () => show(index - 1));
     $('[data-next]').addEventListener('click', () => (index === items.length - 1 ? showSummary() : show(index + 1)));
-    $('[data-restart]').addEventListener('click', () => {
-      answers.clear();
-      all.forEach(resetItem);
-      items = all;
-      show(0);
-      root.scrollIntoView({ block: 'start', behavior: smooth() });
-    });
-    const practiseMarked = () => {
-      const marked = all.filter((it) => flags.has(it.dataset.n!));
-      if (!marked.length) return;
-      marked.forEach((it) => {
-        answers.delete(it.dataset.n!);
-        resetItem(it);
-      });
-      items = marked;
+    const restart = (questions: HTMLElement[]) => {
+      if (!questions.length) return;
+      for (const item of questions) {
+        answers.delete(item.dataset.n!);
+        resetItem(item);
+      }
+      items = questions;
       show(0);
       root.scrollIntoView({ block: 'start', behavior: smooth() });
     };
-    $('[data-again-flagged]').addEventListener('click', practiseMarked);
-    $('[data-practice-go]').addEventListener('click', practiseMarked);
+    $('[data-restart]').addEventListener('click', () => restart(all));
+    for (const button of root.querySelectorAll('[data-again-flagged], [data-practice-go]')) {
+      button.addEventListener('click', () => restart(all.filter((item) => flags.has(item.dataset.n!))));
+    }
 
-    // Deep links such as #qz-3 (from search) open that question.
     const openFromHash = () => {
       const m = /^#qz-(\w+)$/.exec(location.hash);
       const item = m && all.find((it) => it.dataset.n === m[1]);
@@ -317,7 +298,6 @@ const { id, storageKey } = Astro.props;
     // A link to the fragment already in the URL fires no hashchange, for example the same
     // search result chosen twice. Handle that click here instead.
     document.addEventListener('click', (e) => {
-      // Leave modified clicks (new tab, new window, download) to the browser.
       if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
       const a = (e.target as HTMLElement).closest<HTMLAnchorElement>('a[href*="#qz-"]');
       if (!a || a.pathname !== location.pathname || a.hash !== location.hash) return;
@@ -341,8 +321,8 @@ const { id, storageKey } = Astro.props;
       text-align: center;
     }
 
-    .qz-kicker {
-      margin: 0;
+    .qz-kicker,
+    .qz-step-label {
       color: var(--ink-2);
       font-weight: 700;
       font-size: var(--text-small);
@@ -366,7 +346,6 @@ const { id, storageKey } = Astro.props;
       font-size: clamp(1.125rem, 1.6vw, 1.3rem);
     }
 
-    /* Progress */
     .qz-progress ol {
       display: grid;
       grid-template-columns: repeat(8, minmax(0, 1fr));
@@ -414,12 +393,12 @@ const { id, storageKey } = Astro.props;
       box-shadow: inset 0 6px 0 currentColor;
     }
 
-    .qz-step:disabled {
+    .qz-step:disabled,
+    .qz-btn:disabled {
       opacity: 0.35;
       cursor: default;
     }
 
-    /* One question */
     .qz-list {
       margin: 0;
       padding: 0;
@@ -484,21 +463,9 @@ const { id, storageKey } = Astro.props;
       justify-self: stretch;
     }
 
-    .qz-step-label {
-      color: var(--ink-2);
-      font-weight: 700;
-      font-size: var(--text-small);
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-    }
-
     .qz-scenario {
       color: var(--ink-2);
       font-size: clamp(1.0625rem, 1.5vw, 1.25rem);
-      outline: none;
-    }
-
-    .qz-feedback {
       outline: none;
     }
 
@@ -513,7 +480,6 @@ const { id, storageKey } = Astro.props;
       font-weight: 700;
     }
 
-    /* Returning learners: a short route to marked questions. */
     .qz-practice {
       display: flex;
       flex-wrap: wrap;
@@ -537,7 +503,7 @@ const { id, storageKey } = Astro.props;
       column-gap: var(--space-2);
       width: 100%;
       min-height: 52px;
-      padding: var(--space-3) var(--space-3);
+      padding: var(--space-3);
       border: 0;
       border-radius: 10px;
       background: color-mix(in srgb, var(--ink) 5%, var(--paper));
@@ -573,8 +539,10 @@ const { id, storageKey } = Astro.props;
       box-shadow: inset 5px 0 0 var(--bad);
     }
 
-    .qz-letter {
-      grid-area: l;
+    .qz-letter { grid-area: l; }
+
+    .qz-letter,
+    .qz-review-n {
       font-weight: 850;
       font-variation-settings: 'wdth' 125;
     }
@@ -593,10 +561,15 @@ const { id, storageKey } = Astro.props;
       display: none;
     }
 
-    [data-state='right'] > .qz-mark { color: var(--good); }
-    [data-state='wrong'] > .qz-mark { color: var(--bad); }
+    [data-state='right'] > .qz-mark,
+    .qz-verdict[data-state='right'],
+    .qz-review-state[data-state='right'] { color: var(--good); }
+    [data-state='wrong'] > .qz-mark,
+    .qz-verdict[data-state='wrong'],
+    .qz-review-state[data-state='wrong'] { color: var(--bad); }
 
     .qz-feedback {
+      outline: none;
       display: grid;
       gap: var(--space-2);
       animation: qz-in 0.4s ease both;
@@ -608,9 +581,6 @@ const { id, storageKey } = Astro.props;
       font-size: clamp(1.75rem, 3.5vw, 2.75rem);
       line-height: 1;
     }
-
-    .qz-verdict[data-state='right'] { color: var(--good); }
-    .qz-verdict[data-state='wrong'] { color: var(--bad); }
 
     .qz-myth {
       color: var(--ink-2);
@@ -718,7 +688,6 @@ const { id, storageKey } = Astro.props;
       font-size: var(--text-small);
     }
 
-    /* Nav */
     .qz-nav {
       display: flex;
       align-items: center;
@@ -754,12 +723,6 @@ const { id, storageKey } = Astro.props;
       padding-inline: 0;
     }
 
-    .qz-btn:disabled {
-      opacity: 0.35;
-      cursor: default;
-    }
-
-    /* Summary */
     .qz-summary {
       display: grid;
       justify-items: center;
@@ -832,20 +795,12 @@ const { id, storageKey } = Astro.props;
       text-underline-offset: 0.2em;
     }
 
-    .qz-review-n {
-      font-weight: 850;
-      font-variation-settings: 'wdth' 125;
-    }
-
     .qz-review-state {
       color: var(--ink-3);
       font-size: var(--text-small);
       font-weight: 700;
       white-space: nowrap;
     }
-
-    .qz-review-state[data-state='right'] { color: var(--good); }
-    .qz-review-state[data-state='wrong'] { color: var(--bad); }
 
     .qz-summary-actions {
       display: flex;
