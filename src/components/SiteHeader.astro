@@ -31,26 +31,18 @@ const current = Astro.url.pathname;
     <p class="gm-title">18 guides, in study order</p>
     <ol class="gm-list">
       {
-        guides.map((g) => (
-          <li>
-            {g.href ? (
-              <a class="gm-item is-live" href={g.href} aria-current={current === g.href ? 'page' : undefined}>
+        guides.map((g) => {
+          const Tag = g.href ? 'a' : 'span';
+          return (
+            <li>
+              <Tag class:list={['gm-item', { 'is-live': g.href }]} href={g.href} aria-current={current === g.href ? 'page' : undefined}>
                 <span class="gm-n">{g.number}</span>
-                <span class="gm-t">{g.title}</span>
+                <span class="gm-t">{g.title}{!g.href && g.optional && ' (optional)'}</span>
                 <span class="gm-s">{stateLabel[g.state]}</span>
-              </a>
-            ) : (
-              <span class="gm-item">
-                <span class="gm-n">{g.number}</span>
-                <span class="gm-t">
-                  {g.title}
-                  {g.optional && ' (optional)'}
-                </span>
-                <span class="gm-s">{stateLabel[g.state]}</span>
-              </span>
-            )}
-          </li>
-        ))
+              </Tag>
+            </li>
+          );
+        })
       }
     </ol>
   </div>
@@ -101,13 +93,8 @@ const current = Astro.url.pathname;
   openBtn.addEventListener('click', open);
   closeBtn.addEventListener('click', () => dialog.close());
   dialog.addEventListener('click', (e) => {
-    if (e.target === dialog) dialog.close();
+    if (e.target === dialog || (e.target as HTMLElement).closest('#search-ui a')) dialog.close();
   });
-  // Choosing a result closes the dialog, so a link to this page shows its target.
-  dialog.addEventListener('click', (e) => {
-    if ((e.target as HTMLElement).closest('#search-ui a')) dialog.close();
-  });
-  // Ctrl+K or Cmd+K opens search. A modifier keeps the shortcut from firing while typing.
   document.addEventListener('keydown', (e) => {
     if (e.key.toLowerCase() === 'k' && (e.ctrlKey || e.metaKey) && !e.altKey && !dialog.open) {
       e.preventDefault();
@@ -195,7 +182,6 @@ const current = Astro.url.pathname;
     }
   }
 
-  /* Guides menu: a sheet under the header */
   .guides-menu {
     position: fixed;
     inset: var(--header-h) 0 auto 0;
@@ -276,7 +262,6 @@ const current = Astro.url.pathname;
     color: var(--good);
   }
 
-  /* Search dialog */
   .search {
     width: min(44rem, calc(100% - 2rem));
     max-height: min(80svh, 44rem);
