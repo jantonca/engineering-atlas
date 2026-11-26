@@ -1,5 +1,4 @@
-/* Shared parts for timeline simulators: controls, lanes, result, steps.
-   Global because the scripts create elements at runtime. Prefix: sx-. */
+/* Scene scripts create timeline elements at runtime, so these styles are global. */
 
 .sx {
   --label: var(--diagram-size);
@@ -7,7 +6,6 @@
   gap: var(--space-5);
 }
 
-/* ---------- Controls ---------- */
 .sx-controls {
   display: grid;
   grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
@@ -199,7 +197,6 @@
   font-size: var(--text-small);
 }
 
-/* ---------- Stage: a mock screen beside a timeline ---------- */
 .sx-stage {
   display: grid;
   grid-template-columns: 15rem minmax(0, 1fr);
@@ -252,7 +249,6 @@
   color: var(--ink-2);
 }
 
-/* Timeline */
 .sx-tl {
   position: relative;
   display: grid;
@@ -373,13 +369,6 @@
   background: var(--good);
 }
 
-.sx-mark.is-bad {
-  width: 4px;
-  height: 100%;
-  margin-left: -2px;
-  background: var(--bad);
-}
-
 .sx-dot {
   position: absolute;
   bottom: 3px;
@@ -429,7 +418,7 @@
 .sx-key.is-good { background: var(--good); }
 .sx-key.is-net { background: var(--net); }
 .sx-key.is-wait { background: repeating-linear-gradient(-45deg, var(--warn) 0 3px, transparent 3px 7px); }
-.sx-key.is-tick { width: 2px; height: 12px; background: var(--ink-3); }
+.sx-key.is-tick { width: 2px; background: var(--ink-3); }
 
 .sx-bar {
   display: flex;
@@ -462,7 +451,6 @@
   font-size: var(--label);
 }
 
-/* ---------- Result ---------- */
 .sx-verdict {
   display: grid;
   grid-template-columns: auto minmax(0, 30rem);
@@ -548,7 +536,6 @@
   from { opacity: 0; transform: translateY(8px); }
 }
 
-/* ---------- Narrow screens ---------- */
 @media (max-width: 62rem) {
   .sx {
     gap: var(--space-4);
