@@ -60,7 +60,7 @@ import { STAGES as stages } from './render-pipeline';
       </div>
     </div>
 
-    <figure class="rp-fig">
+    <figure class="rp-fig" data-tl>
       <ol class="rp-pipe">
         {
           stages.map((s, i) => (
@@ -134,7 +134,7 @@ import { STAGES as stages } from './render-pipeline';
 </div>
 
 <script>
-  import { onResize, play, steps as makeSteps, verdict as makeVerdict } from '../../scripts/sim';
+  import { follow, onResize, play, steps as makeSteps, verdict as makeVerdict, whenVisible } from '../../scripts/sim';
   import { RUNS, SCREEN, STAGES as STAGE_INFO, STATE_TEXT, STEP_TEXT, VERDICT, type Change, type Stage } from './render-pipeline';
 
   const STAGES: Stage[] = STAGE_INFO.map((s) => s.id);
@@ -209,13 +209,17 @@ import { STAGES as stages } from './render-pipeline';
       stop = play(span, 1, frame, finish);
     };
 
-    $('[data-run]').addEventListener('click', run);
+    $('[data-run]').addEventListener('click', () => {
+      run();
+      follow($('[data-tl]'));
+    });
     inputs.forEach((i) => i.addEventListener('change', run));
 
     build();
     frame(span);
     finish();
     onResize(root, () => frame(last));
+    whenVisible($('[data-tl]'), run);
   }
 </script>
 

@@ -99,7 +99,7 @@ import '../../styles/sim.css';
 </div>
 
 <script>
-  import { el, fitLabel, keepInside, onResize, place, play, steps as makeSteps, verdict as makeVerdict, whenVisible } from '../../scripts/sim';
+  import { el, fitLabel, follow, keepInside, onResize, place, play, steps as makeSteps, verdict as makeVerdict, whenVisible } from '../../scripts/sim';
 
   const SPAN = 1200;
   const SECOND_SENT = 300;
@@ -326,7 +326,10 @@ import '../../styles/sim.css';
       stop = play(SPAN, SLOW, frame, finish);
     };
 
-    $('[data-run]').addEventListener('click', run);
+    $('[data-run]').addEventListener('click', () => {
+      run();
+      follow(root.querySelector('[data-tl]')!);
+    });
     let debounce = 0;
     aInput.addEventListener('input', () => {
       $('[data-a-out]').textContent = ms(Number(aInput.value));

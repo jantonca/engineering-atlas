@@ -85,6 +85,18 @@ export const whenVisible = (target: Element, fn: () => void, threshold = 0.5) =>
 };
 
 /**
+ * When a run starts from a button, bring the part that animates into view.
+ * On a phone the scene stacks, so it can sit above or below the button.
+ */
+export const follow = (target: Element) => {
+  const r = target.getBoundingClientRect();
+  const top = parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop) || 0;
+  if (r.top >= top && r.bottom <= window.innerHeight) return;
+  const fits = r.height <= window.innerHeight - top;
+  target.scrollIntoView({ block: fits ? 'nearest' : 'start', behavior: reducedMotion() ? 'auto' : 'smooth' });
+};
+
+/**
  * Put a label inside a bar only if it fits. Tries each text in order;
  * removes the label when none fits, so labels are never cut off.
  */

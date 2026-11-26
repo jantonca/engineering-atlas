@@ -99,7 +99,7 @@ import '../../styles/sim.css';
 </div>
 
 <script>
-  import { el, fitLabel, keepInside, onResize, place, play, steps as makeSteps, verdict as makeVerdict, whenVisible, type Tone } from '../../scripts/sim';
+  import { el, fitLabel, follow, keepInside, onResize, place, play, steps as makeSteps, verdict as makeVerdict, whenVisible, type Tone } from '../../scripts/sim';
 
   const SPAN = 800;
   const T0 = 100; // the task starts here
@@ -330,7 +330,10 @@ import '../../styles/sim.css';
       frame(now);
     });
 
-    $('[data-run]').addEventListener('click', run);
+    $('[data-run]').addEventListener('click', () => {
+      run();
+      follow(root.querySelector('[data-tl]')!);
+    });
     let debounce = 0;
     lenInput.addEventListener('input', () => {
       $('[data-len-out]').textContent = ms(len());

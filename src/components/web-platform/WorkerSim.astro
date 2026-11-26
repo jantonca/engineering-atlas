@@ -63,7 +63,7 @@ import { WORD } from './worker-sim';
       </div>
     </div>
 
-    <figure class="sx-tl">
+    <figure class="sx-tl" data-tl>
       <div class="sx-lane">
         <p class="sx-lane-name">You type “{WORD}”</p>
         <div class="sx-track wk-tall" data-track="keys"></div>
@@ -101,7 +101,7 @@ import { WORD } from './worker-sim';
 </div>
 
 <script>
-  import { el, fitLabel, keepInside, onResize, place, play, steps as makeSteps, verdict as makeVerdict } from '../../scripts/sim';
+  import { el, fitLabel, follow, keepInside, onResize, place, play, steps as makeSteps, verdict as makeVerdict, whenVisible } from '../../scripts/sim';
   import { PARSE, RENDER, SPAN, WORD, ms, simulate, stepsFor, verdictFor, type Back, type Mode, type Sim } from './worker-sim';
 
   const SLOW = 2;
@@ -268,7 +268,10 @@ import { WORD } from './worker-sim';
       finish();
     };
 
-    $('[data-run]').addEventListener('click', run);
+    $('[data-run]').addEventListener('click', () => {
+      run();
+      follow($('[data-tl]'));
+    });
     [...modeInputs, ...backInputs].forEach((i) => i.addEventListener('change', show));
 
     show();
@@ -276,6 +279,7 @@ import { WORD } from './worker-sim';
       draw();
       frame(last);
     });
+    whenVisible($('[data-tl]'), run);
   }
 </script>
 

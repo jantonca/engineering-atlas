@@ -144,7 +144,7 @@ import '../../styles/sim.css';
 </div>
 
 <script>
-  import { el, reducedMotion, verdict, whenVisible } from '../../scripts/sim';
+  import { el, follow, reducedMotion, verdict, whenVisible } from '../../scripts/sim';
 
   const MAX_AGE = 300; // seconds, from Cache-Control: max-age=300
   const HOP_MS = 950;
@@ -429,7 +429,10 @@ import '../../styles/sim.css';
       debounce = window.setTimeout(run, 450);
     });
     serverInputs.forEach((i) => i.addEventListener('change', run));
-    $('[data-replay]').addEventListener('click', run);
+    $('[data-replay]').addEventListener('click', () => {
+      run();
+      follow(stage);
+    });
 
     reset();
     whenVisible(stage, run, 0.6);

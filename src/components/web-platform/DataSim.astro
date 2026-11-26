@@ -115,14 +115,13 @@ import { FIELDS } from './data-sim';
 </div>
 
 <script>
-  import { play, reducedMotion, steps as makeSteps, verdict as makeVerdict } from '../../scripts/sim';
+  import { follow, play, steps as makeSteps, verdict as makeVerdict, whenVisible } from '../../scripts/sim';
   import { FIELDS, RESPONSE, SPAN, STEP, VERDICT, check, screen, steps, type Code, type Data } from './data-sim';
 
   for (const root of document.querySelectorAll<HTMLElement>('[data-dv]')) {
     const $ = <T extends Element = HTMLElement>(s: string) => root.querySelector<T>(s)!;
     const picked = (name: string) => root.querySelector<HTMLInputElement>(`[name="${name}"]:checked`)!.value;
     const fig = $('[data-fig]');
-    const build = $('.dv-build');
     const stepList = makeSteps($('[data-steps]'));
     const result = makeVerdict($('[data-verdict]'));
     let stop = () => {};
@@ -173,8 +172,6 @@ import { FIELDS } from './data-sim';
       stop();
       result.hide();
       draw();
-      // The run opens with the build. On a phone it can be above the view, so show it once.
-      if (!reducedMotion() && build.getBoundingClientRect().top < 0) build.scrollIntoView({ behavior: 'smooth' });
       frame(0);
       stop = play(SPAN, 1, frame, finish);
     };
@@ -186,9 +183,13 @@ import { FIELDS } from './data-sim';
       finish();
     };
 
-    $('[data-run]').addEventListener('click', run);
+    $('[data-run]').addEventListener('click', () => {
+      run();
+      follow(fig);
+    });
     root.querySelectorAll('input').forEach((i) => i.addEventListener('change', show));
     show();
+    whenVisible(fig, run);
   }
 </script>
 
