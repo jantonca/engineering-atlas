@@ -1,6 +1,4 @@
 ---
-// One chapter per common question: the question, a short statement,
-// a 2–3 sentence answer, then the scene. Sources close the chapter.
 interface Props {
   id: string;
   n: string;
@@ -19,7 +17,7 @@ const { id, n, topic, question, title } = Astro.props;
     <p class="ch-title">{title}</p>
     <div class="ch-answer"><slot name="answer" /></div>
   </header>
-  <div class="ch-body"><slot /></div>
+  <div><slot /></div>
   {
     Astro.slots.has('after') && (
       <div class="ch-after">
