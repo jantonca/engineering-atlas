@@ -1,8 +1,4 @@
 ---
-// Web worker scene: the user drops a 40 MB CSV file and types in a search box
-// while the page parses it. The visitor picks where the parsing runs (one block on
-// the main thread, small pieces, or a web worker) and what the worker sends back.
-// Model and text: worker-sim.ts. The script draws everything that depends on the choices.
 import '../../styles/sim.css';
 import { WORD } from './worker-sim';
 ---
@@ -67,7 +63,7 @@ import { WORD } from './worker-sim';
       </div>
     </div>
 
-    <figure class="sx-tl" data-tl>
+    <figure class="sx-tl">
       <div class="sx-lane">
         <p class="sx-lane-name">You type “{WORD}”</p>
         <div class="sx-track wk-tall" data-track="keys"></div>
@@ -160,7 +156,6 @@ import { WORD } from './worker-sim';
       sim = simulate(mode(), back());
       for (const tr of Object.values(tracks)) tr.replaceChildren();
 
-      // Typing: one dot per key press, and a hatched bar while it waits.
       // Each wait bar stops where the next key press starts, so overlapping waits never stack.
       sim.keys.forEach((k, i) => {
         const wait = el('span', 'sx-block is-wait');
@@ -174,7 +169,6 @@ import { WORD } from './worker-sim';
       if (worst.wait > 0) tag(tracks.keys, worst.at, `longest wait ${ms(worst.wait)}`, 'var(--warn)');
       else tag(tracks.keys, sim.keys[0].at, 'every handler starts at once', 'var(--good)');
 
-      // Main thread: every task, with labels where they fit.
       for (const b of sim.blocks) {
         const long = b.end - b.start > 50;
         const cls = b.kind === 'key' ? 'is-good wk-key' : long ? 'is-bad' : '';
@@ -192,7 +186,6 @@ import { WORD } from './worker-sim';
       }
       tag(tracks.main, sim.table - RENDER, 'table', 'var(--ink-2)');
 
-      // Worker thread.
       if (sim.worker) {
         const node = el('span', 'sx-block is-ink');
         place(node, sim.worker.start, sim.worker.end, SPAN);
@@ -222,7 +215,6 @@ import { WORD } from './worker-sim';
     const showScreen = (t: number) => {
       const handled = sim.keys.filter((k) => k.end <= t).length;
       typed.textContent = WORD.slice(0, handled);
-      // The status names the task the main thread is running, so it matches the timeline.
       const task = sim.blocks.find((b) => b.kind !== 'key' && b.kind !== 'send' && b.start <= t && t < b.end);
       const working = sim.worker && sim.worker.start <= t && t < sim.worker.end;
       status.textContent = t < 100
@@ -268,7 +260,6 @@ import { WORD } from './worker-sim';
       stop = play(SPAN, SLOW, frame, finish);
     };
 
-    // A new choice shows its finished run at once. Only the button plays it.
     const show = () => {
       stop();
       syncBack();
@@ -280,7 +271,6 @@ import { WORD } from './worker-sim';
     $('[data-run]').addEventListener('click', run);
     [...modeInputs, ...backInputs].forEach((i) => i.addEventListener('change', show));
 
-    // Show the finished run of the current choices. Nothing plays until asked.
     show();
     onResize(root, () => {
       draw();
@@ -311,7 +301,6 @@ import { WORD } from './worker-sim';
     color: var(--ink-2);
   }
 
-  /* Placeholder rows: shown once the table is built. */
   .wk .wk-rows {
     display: grid;
     gap: var(--space-2);
