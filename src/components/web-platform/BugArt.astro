@@ -1,6 +1,4 @@
 ---
-// The small drawings for the eight places where bugs start.
-// Shared by the bug map and the quiz.
 export type Art = 'order' | 'cache' | 'data' | 'main' | 'worker' | 'render' | 'memory' | 'browsers';
 
 interface Props {
@@ -95,7 +93,6 @@ const { art, class: className } = Astro.props;
     overflow: visible;
   }
 
-  /* Drawing parts */
   .ink { fill: var(--ink); }
   .bad { fill: var(--bad); }
   .good { fill: var(--good); }
