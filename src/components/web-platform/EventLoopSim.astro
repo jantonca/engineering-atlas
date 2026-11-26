@@ -1,7 +1,4 @@
 ---
-// Event loop simulator: one main thread, one long task, one tap.
-// The visitor sets the task length, chooses one block or small pieces,
-// and taps a real button while the task runs.
 // Teaching model, simplified: tasks run one at a time to completion (HTML event loop).
 // A frame is due every 1000/60 ms. The screen updates only between tasks, so a frame
 // that falls due during a task waits for that task to end.
@@ -117,7 +114,6 @@ import '../../styles/sim.css';
   interface Block { kind: Kind; start: number; end: number }
   interface Job { kind: Kind; ready: number; dur: number; left: number; order: number }
 
-  // Run jobs one at a time. When the thread is free, it takes the job that was queued first.
   const simulate = (len: number, pieces: boolean, tap: number) => {
     let order = 0;
     const queue: Job[] = [
@@ -145,8 +141,6 @@ import '../../styles/sim.css';
       }
     }
     const handler = blocks.find((b) => b.kind === 'handler')!;
-    // One schedule of screen updates. Each due frame updates the screen at once if the
-    // thread is free, or at the end of the task that is running.
     const ticks: number[] = [];
     for (let i = 0; i * FRAME <= SPAN; i++) {
       const f = Math.round(i * FRAME * 1000) / 1000; // avoid float drift at task edges
@@ -154,7 +148,6 @@ import '../../styles/sim.css';
       const at = busy ? busy.end : f;
       if (at <= SPAN && !ticks.includes(at)) ticks.push(at);
     }
-    // The button changes at the first screen update after the handler ends.
     const paint = ticks.find((t) => t >= handler.end) ?? SPAN;
     return { blocks, handler, paint, ticks };
   };
@@ -234,8 +227,6 @@ import '../../styles/sim.css';
         return c;
       });
 
-      // Text version, with the time at which each step happens. Sorted by time at the end,
-      // so a tap before the task starts is listed first.
       const lines: string[] = [];
       stepTimes = [];
       const who = userTap ? 'You tap' : 'A tap comes';
@@ -290,7 +281,6 @@ import '../../styles/sim.css';
       playing = false;
       playhead.hidden = true;
       help.textContent = 'Run it again and tap at a different moment.';
-      // Total latency = waiting in the queue + the handler + waiting for the next screen update.
       const delay = sim.paint - tap;
       const waited = sim.handler.start - tap;
       const toFrame = sim.paint - sim.handler.end;
