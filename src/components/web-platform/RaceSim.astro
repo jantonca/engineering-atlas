@@ -1,6 +1,4 @@
 ---
-// Out-of-order responses: a search for "ca", then "cat".
-// The visitor sets how slow the first request is and picks a guard.
 import '../../styles/sim.css';
 ---
 
@@ -121,14 +119,12 @@ import '../../styles/sim.css';
   const simulate = (a: number, guard: Guard) => {
     const aborted = guard === 'abort' && a > SECOND_SENT;
     const ignored = guard === 'ignore' && a > SECOND_SENT;
-    // One ordered list of arrivals drives the screen, the steps and the verdict.
     // On a tie, response 1 is handled first because its request was sent first.
     const arrivals: { t: number; q: Query }[] = [];
     if (!aborted) arrivals.push({ t: a, q: 'ca' });
     arrivals.push({ t: SECOND_ARRIVES, q: 'cat' });
     arrivals.sort((x, y) => x.t - y.t); // stable, so the tie order above is kept
     const applied = arrivals.filter((ev) => !(ignored && ev.q === 'ca'));
-    // What the page shows, as segments over time.
     const segs: { start: number; end: number; q: Query; tone: 'good' | 'old' | 'bad' }[] = [];
     applied.forEach((ev, i) => {
       const end = applied[i + 1]?.t ?? SPAN;
@@ -170,7 +166,6 @@ import '../../styles/sim.css';
     const guard = () => (guardInputs.find((i) => i.checked)?.value ?? 'none') as Guard;
     const pct = (t: number) => `${(t / SPAN) * 100}%`;
 
-    // Labels sit above the bar so they never cover it.
     const tag = (track: HTMLElement, t: number, text: string, color: string) => {
       const node = el('span', 'sx-tag', text);
       node.style.left = pct(t);
@@ -253,7 +248,6 @@ import '../../styles/sim.css';
             : 'You type “cat”. The page sends request 2.',
         },
       ];
-      // A tie only when both responses really arrive at the same moment.
       const [first, second] = sim.arrivals;
       const tie = !!second && first.t === second.t && !sim.ignored;
       for (const ev of sim.arrivals) {
