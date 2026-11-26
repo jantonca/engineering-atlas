@@ -1,6 +1,4 @@
 ---
-// Guide navigation that stays at the top while reading.
-// Lists only sections that exist on the page.
 interface Item {
   id: string;
   label: string;
@@ -59,19 +57,17 @@ const { title, items } = Astro.props;
   const sheet = document.querySelector<HTMLElement>('#ln-sheet');
   const current = nav?.querySelector<HTMLElement>('[data-ln-current]');
   const links = [...document.querySelectorAll<HTMLAnchorElement>('[data-ln-link]')];
-  const ids = [...new Set(links.map((l) => l.dataset.lnLink!))];
-  const sections = ids.map((id) => document.getElementById(id)).filter(Boolean) as HTMLElement[];
+  const labels = new Map(links.map((link) => [link.dataset.lnLink!, link.dataset.lnLabel!]));
+  const sections = [...labels.keys()].map((id) => document.getElementById(id)).filter(Boolean) as HTMLElement[];
 
   const setActive = (id: string | null) => {
     for (const l of links) {
       if (l.dataset.lnLink === id) l.setAttribute('aria-current', 'true');
       else l.removeAttribute('aria-current');
     }
-    const active = links.find((l) => l.dataset.lnLink === id);
-    if (current) current.textContent = active?.dataset.lnLabel || 'Contents';
+    if (current) current.textContent = labels.get(id ?? '') || 'Contents';
   };
 
-  // The active section is the last one whose top has passed the upper third of the screen.
   const update = () => {
     const line = window.innerHeight * 0.33;
     let active: string | null = null;
@@ -144,6 +140,10 @@ const { title, items } = Astro.props;
   .ln-list {
     display: flex;
     gap: var(--space-4);
+  }
+
+  .ln-list,
+  .ln-sheet ul {
     margin: 0;
     padding: 0;
     list-style: none;
@@ -215,9 +215,6 @@ const { title, items } = Astro.props;
 
   .ln-sheet ul {
     display: grid;
-    margin: 0;
-    padding: 0;
-    list-style: none;
   }
 
   .ln-sheet a {
