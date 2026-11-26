@@ -1,4 +1,3 @@
-// Data and text for the runtime validation scene: an order page reads an API response.
 // The error messages are the real Zod 4.6.7 messages, checked 26 November 2026.
 import type { Tone } from '../../scripts/sim';
 
@@ -10,7 +9,6 @@ export const FIELDS: Field[] = ['status', 'total', 'shipping'];
 export const STEP = 1100; // ms per stage: build, response, edge, screen
 export const SPAN = 4 * STEP;
 
-/** What the API sends, and which field it changed. */
 export const RESPONSE: Record<Data, { json: Record<Field, string>; changed?: Field }> = {
   ok: { json: { status: '"shipped"', total: '42.95', shipping: '5' } },
   string: { json: { status: '"shipped"', total: '"42.95"', shipping: '5' }, changed: 'total' },
@@ -27,7 +25,6 @@ const FAIL: Partial<Record<Field, string>> = {
 export const check = (d: Data, c: Code, f: Field): [boolean | null, string] =>
   c === 'trust' ? [null, 'not checked'] : RESPONSE[d].changed === f ? [false, FAIL[f]!] : [true, PASS[f]];
 
-/** What the order page shows, or null when it shows an error. */
 export const screen = (d: Data, c: Code) =>
   c === 'schema' && d !== 'ok' ? null : { status: d === 'status' ? 'undefined' : 'On its way', price: d === 'string' ? '€42.955' : '€47.95' };
 
@@ -51,7 +48,6 @@ const END: Record<Data, string> = {
 };
 const CAUGHT = 'The order code never runs with bad data. The page catches the error, shows a message and sends the error, with the field name, to your error reports.';
 
-/** The numbered steps, one per stage. */
 export const steps = (d: Data, c: Code) => [
   'Build. TypeScript checks the code against the Order type and finds 0 errors. Then it removes the types. ' +
     (c === 'schema' ? 'The schema is not a type: it stays in the JavaScript.' : 'The JavaScript that runs has no Order type.'),
