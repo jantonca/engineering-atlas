@@ -1,4 +1,3 @@
-// Text and rules for the render pipeline scene.
 import type { Tone } from '../../scripts/sim';
 
 export type Stage = 'parse' | 'style' | 'layout' | 'paint' | 'composite';
@@ -61,7 +60,6 @@ export const VERDICT: Record<Change, [string, string, string, Tone]> = {
   transform: ['2 of 5', 'steps run again for a transform', 'Layout and paint are skipped, because the box keeps its place in the layout and its pixels. This is why smooth animations use transform and opacity.', 'good'],
 };
 
-// What the mock page shows when each step ends: a short status line.
 export const SCREEN: Record<Change, { before: string; after: Partial<Record<Stage, string>> }> = {
   load: {
     before: 'On screen: a blank page.',
