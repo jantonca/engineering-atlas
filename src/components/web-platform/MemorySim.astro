@@ -1,8 +1,4 @@
 ---
-// Memory leak scene: a support inbox. Each ticket view has a timer that updates
-// "updated 2 min ago". The visitor picks what happens when a ticket closes and sees
-// what the garbage collector can still reach from the roots.
-// Model and text: memory-sim.ts. The script draws everything that depends on the choice.
 import '../../styles/sim.css';
 import { ROOT_NAMES, VIEWS, type Root } from './memory-sim';
 
@@ -42,17 +38,17 @@ const views = [...Array(VIEWS).keys()];
 
   <div class="sx-stage">
     <div class="sx-side">
-      <div class="sx-screen" data-screen>
+      <div class="sx-screen">
         <p class="sx-screen-name">A support inbox</p>
         <ul class="mem-inbox">
           {TICKETS.map((name, i) => (
             <li data-ticket={i}>
-              <span class="mem-ticket">{name}</span>
+              <span>{name}</span>
               <span class="mem-ago"></span>
             </li>
           ))}
         </ul>
-        <p class="mem-readout" data-readout>
+        <p class="mem-readout">
           In memory: <strong data-in-memory></strong> ticket views,{' '}
           <strong data-detached></strong> detached
         </p>
@@ -66,7 +62,7 @@ const views = [...Array(VIEWS).keys()];
       </div>
     </div>
 
-    <figure class="mem-fig" data-fig>
+    <figure class="mem-fig">
       <div class="mem-heads" aria-hidden="true">
         <p>Roots: start here</p>
         <p>Ticket views</p>
@@ -80,7 +76,7 @@ const views = [...Array(VIEWS).keys()];
           </div>
         ))}
 
-        <svg class="mem-edges" aria-hidden="true" data-edges>
+        <svg class="mem-edges" aria-hidden="true">
           <defs>
             <marker id="mem-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
               <path class="mem-head" d="M0 0 10 5 0 10Z"></path>
@@ -177,7 +173,6 @@ const views = [...Array(VIEWS).keys()];
       const { inMemory, detached } = counts(snap);
       $('[data-in-memory]').textContent = String(inMemory);
       $('[data-detached]').textContent = String(detached);
-      // The collection step: show the marking from the roots.
       const gc = snap.kind === 'gc';
       graph.classList.toggle('is-gc', gc);
       phase.textContent = gc ? 'The collector follows every arrow from the roots. What it cannot reach is freed.' : '';
@@ -211,7 +206,6 @@ const views = [...Array(VIEWS).keys()];
       stop = play(SPAN, 1, frame, finish);
     };
 
-    // A new choice shows its finished run at once. Only the button plays it.
     const show = () => {
       stop();
       draw();
@@ -222,7 +216,6 @@ const views = [...Array(VIEWS).keys()];
     $('[data-run]').addEventListener('click', run);
     modeInputs.forEach((i) => i.addEventListener('change', show));
 
-    // Show the finished run of the current choice. Nothing plays until asked.
     show();
   }
 </script>
@@ -232,17 +225,15 @@ const views = [...Array(VIEWS).keys()];
     grid-template-columns: minmax(0, 1fr);
   }
 
-  /* ---------- Mock screen ---------- */
   .mem .mem-inbox {
     display: grid;
-    margin: 0;
     padding: 0;
     list-style: none;
   }
 
   .mem .mem-inbox li {
     display: grid;
-    padding: var(--space-2) var(--space-2);
+    padding: var(--space-2);
     border-radius: 8px;
     color: var(--ink-2);
   }
@@ -254,7 +245,6 @@ const views = [...Array(VIEWS).keys()];
   }
 
   .mem .mem-ago {
-    color: var(--ink-2);
     font-weight: 400;
   }
 
@@ -265,7 +255,6 @@ const views = [...Array(VIEWS).keys()];
   .mem .mem-readout {
     padding-top: var(--space-2);
     box-shadow: 0 -1px 0 var(--faint);
-    color: var(--ink-2);
   }
 
   .mem .mem-readout strong {
@@ -273,7 +262,6 @@ const views = [...Array(VIEWS).keys()];
     font-variant-numeric: tabular-nums;
   }
 
-  /* ---------- Graph ---------- */
   .mem .mem-fig {
     --edge-w: clamp(3rem, 9vw, 9rem);
     display: grid;
@@ -339,6 +327,8 @@ const views = [...Array(VIEWS).keys()];
     font-size: 1em;
   }
 
+  .mem .mem-readout,
+  .mem .mem-ago,
   .mem .mem-sub,
   .mem .mem-state {
     color: var(--ink-2);
@@ -365,7 +355,6 @@ const views = [...Array(VIEWS).keys()];
 
   .mem .mem-view {
     grid-column: 3;
-    align-self: stretch;
   }
 
   .mem .mem-view.is-open .mem-state {
@@ -373,7 +362,6 @@ const views = [...Array(VIEWS).keys()];
     font-weight: 700;
   }
 
-  /* Detached but reachable: the leak. Thick border and text, not colour alone. */
   .mem .mem-view.is-held {
     box-shadow: inset 0 0 0 4px var(--bad);
     background: repeating-linear-gradient(-45deg, color-mix(in srgb, var(--bad) 10%, transparent) 0 6px, transparent 6px 12px);
@@ -403,7 +391,6 @@ const views = [...Array(VIEWS).keys()];
     outline-color: var(--faint);
   }
 
-  /* Edges: one SVG in the middle column, spanning all four rows. */
   .mem .mem-edges {
     grid-column: 2;
     grid-row: 1 / -1;
@@ -434,7 +421,6 @@ const views = [...Array(VIEWS).keys()];
     fill: var(--bad);
   }
 
-  /* The collection step: marching dashes show the collector following references. */
   .mem .mem-graph.is-gc .mem-edge {
     stroke-dasharray: 6 5;
     animation: mem-mark 0.6s linear infinite;
