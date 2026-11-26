@@ -1,7 +1,4 @@
 ---
-// Render pipeline: from HTML to pixels in five steps.
-// The visitor picks what happens (the first load, or a script that changes one box)
-// and watches which steps run and which are skipped.
 // Teaching model, simplified from the pixel pipeline on web.dev (Style, Layout, Paint,
 // Composite) with parsing added in front. Real browsers split these steps further.
 // Times are not measured: each step simply gets the same time in the animation.
@@ -40,13 +37,13 @@ import { STAGES as stages } from './render-pipeline';
 
   <div class="sx-stage">
     <div class="sx-side">
-      <div class="sx-screen rp-screen" data-screen>
+      <div class="sx-screen rp-screen">
         <p class="sx-screen-name">A page with one box</p>
         <div class="rp-page" data-page data-change="load" data-view="live">
           <span class="rp-heading" aria-hidden="true"></span>
           <div class="rp-row">
             <span class="rp-ghost" aria-hidden="true"></span>
-            <span class="rp-box" data-box>Box</span>
+            <span class="rp-box">Box</span>
             <span class="rp-text">Text beside the box</span>
           </div>
           <span class="rp-line" aria-hidden="true"></span>
@@ -63,7 +60,7 @@ import { STAGES as stages } from './render-pipeline';
       </div>
     </div>
 
-    <figure class="rp-fig" data-tl>
+    <figure class="rp-fig">
       <ol class="rp-pipe">
         {
           stages.map((s, i) => (
@@ -85,16 +82,16 @@ import { STAGES as stages } from './render-pipeline';
                     <path class="rp-i-line" d="M20 10.5 H58" />
                     <rect class="rp-i-fill" x="4" y="19" width="9" height="9" />
                     <path class="rp-i-line" d="M20 23.5 H48" />
-                    <rect class="rp-i-hole" x="4" y="32" width="9" height="9" />
+                    <rect class="rp-i-line" x="4" y="32" width="9" height="9" />
                     <path class="rp-i-dash" d="M20 36.5 H40" />
                   </>
                 )}
                 {s.id === 'layout' && (
                   <>
                     <path class="rp-i-line" d="M4 6 H30 M4 2 V10 M30 2 V10" />
-                    <rect class="rp-i-hole" x="4" y="16" width="26" height="24" />
-                    <rect class="rp-i-hole" x="36" y="16" width="24" height="10" />
-                    <rect class="rp-i-hole" x="36" y="30" width="18" height="10" />
+                    <rect class="rp-i-line" x="4" y="16" width="26" height="24" />
+                    <rect class="rp-i-line" x="36" y="16" width="24" height="10" />
+                    <rect class="rp-i-line" x="36" y="30" width="18" height="10" />
                   </>
                 )}
                 {s.id === 'paint' && (
@@ -106,8 +103,8 @@ import { STAGES as stages } from './render-pipeline';
                 )}
                 {s.id === 'composite' && (
                   <>
-                    <rect class="rp-i-hole" x="4" y="4" width="34" height="22" />
-                    <rect class="rp-i-hole" x="14" y="12" width="34" height="22" />
+                    <rect class="rp-i-line" x="4" y="4" width="34" height="22" />
+                    <rect class="rp-i-line" x="14" y="12" width="34" height="22" />
                     <rect class="rp-i-fill" x="24" y="20" width="34" height="22" />
                   </>
                 )}
@@ -215,7 +212,6 @@ import { STAGES as stages } from './render-pipeline';
     $('[data-run]').addEventListener('click', run);
     inputs.forEach((i) => i.addEventListener('change', run));
 
-    // Show the finished run of the current choice. Nothing plays until asked.
     build();
     frame(span);
     finish();
@@ -228,7 +224,6 @@ import { STAGES as stages } from './render-pipeline';
     grid-template-columns: minmax(0, 1fr);
   }
 
-  /* ---------- The mock page ---------- */
   .rp .rp-screen {
     min-height: 0;
   }
@@ -261,7 +256,6 @@ import { STAGES as stages } from './render-pipeline';
     position: relative;
     display: flex;
     gap: var(--space-2);
-    align-items: stretch;
     min-height: 5.5rem;
   }
 
@@ -296,7 +290,6 @@ import { STAGES as stages } from './render-pipeline';
     opacity: 0;
   }
 
-  /* The new state shows once the frame reaches the screen. */
   .rp [data-change='width'][data-view='live'] .rp-box {
     flex-basis: 64%;
   }
@@ -318,7 +311,6 @@ import { STAGES as stages } from './render-pipeline';
     opacity: 1;
   }
 
-  /* First load: blank, then outlines from layout, then paint, then on screen. */
   .rp [data-view='blank'] > * {
     visibility: hidden;
   }
@@ -354,7 +346,6 @@ import { STAGES as stages } from './render-pipeline';
     font-weight: 700;
   }
 
-  /* ---------- The pipeline ---------- */
   .rp .rp-fig {
     container-type: inline-size;
     display: grid;
@@ -366,7 +357,6 @@ import { STAGES as stages } from './render-pipeline';
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: var(--space-3);
-    margin: 0;
     padding: 0;
     list-style: none;
   }
@@ -381,7 +371,6 @@ import { STAGES as stages } from './render-pipeline';
     transition: color 0.3s ease;
   }
 
-  /* Arrow to the next step, between the bars. */
   .rp .rp-st:not(:last-child) .rp-bar::after {
     content: '';
     position: absolute;
@@ -397,11 +386,12 @@ import { STAGES as stages } from './render-pipeline';
     overflow: visible;
   }
 
-  .rp-i-line { fill: none; stroke: currentColor; stroke-width: 3; }
-  .rp-i-dash { fill: none; stroke: currentColor; stroke-width: 3; stroke-dasharray: 4 4; }
-  .rp-i-fill { fill: currentColor; }
-  .rp-i-dot { fill: currentColor; opacity: 0.45; }
-  .rp-i-hole { fill: none; stroke: currentColor; stroke-width: 3; }
+  .rp-i-line,
+  .rp-i-dash { fill: none; stroke: currentColor; stroke-width: 3; }
+  .rp-i-dash { stroke-dasharray: 4 4; }
+  .rp-i-fill,
+  .rp-i-dot { fill: currentColor; }
+  .rp-i-dot { opacity: 0.45; }
 
   .rp .rp-st-name {
     grid-area: name;
@@ -455,7 +445,6 @@ import { STAGES as stages } from './render-pipeline';
     content: '✓ ';
   }
 
-  /* Skipped: faded, struck through, with a dashed bar. Text says "skipped" too. */
   .rp .rp-st[data-s='skip'] {
     color: var(--ink-3);
   }
@@ -482,7 +471,6 @@ import { STAGES as stages } from './render-pipeline';
     height: 4px;
   }
 
-  /* Narrow: the steps stack, top to bottom. */
   @container (max-width: 40rem) {
     .rp .rp-pipe {
       grid-template-columns: minmax(0, 1fr);
