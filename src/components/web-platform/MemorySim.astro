@@ -235,8 +235,13 @@ const views = [...Array(VIEWS).keys()];
     list-style: none;
   }
 
+  /* Name and "updated" share a line when there is room, so opening and
+     closing a ticket does not move the graph below it on a phone. */
   .mem .mem-inbox li {
-    display: grid;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    column-gap: var(--space-2);
     padding: var(--space-2);
     border-radius: 8px;
     color: var(--ink-2);
@@ -341,8 +346,31 @@ const views = [...Array(VIEWS).keys()];
   .mem .mem-chips {
     display: flex;
     flex-wrap: wrap;
+    align-content: flex-start;
     gap: 4px;
     margin-top: 4px;
+  }
+
+  /* Up to four chips appear in a root during a run. Where they wrap, keep room
+     for all four, so the graph keeps its height while the run plays. */
+  .mem .mem-root {
+    container-type: inline-size;
+  }
+
+  @container (max-width: 17.5rem) {
+    .mem .mem-root:not(.is-unused) .mem-chips,
+    .mem .mem-root:not(.is-unused) .mem-chips:empty {
+      display: flex;
+      min-height: calc(2 * 1.35em + 4px);
+    }
+  }
+
+  @container (max-width: 9.5rem) {
+    .mem .mem-root:not(.is-unused) .mem-chips,
+    .mem .mem-root:not(.is-unused) .mem-chips:empty {
+      display: flex;
+      min-height: calc(4 * 1.35em + 3 * 4px);
+    }
   }
 
   .mem .mem-chips:empty {

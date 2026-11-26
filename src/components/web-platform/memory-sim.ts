@@ -7,20 +7,24 @@ type State = 'new' | 'open' | 'held' | 'garbage' | 'freed';
 type Kind = 'open' | 'close' | 'gc';
 
 export const VIEWS = 4;
-const STEP = 900; // ms of animation per event
-const EVENTS: { kind: Kind; view: number }[] = [
-  { kind: 'open', view: 0 },
-  { kind: 'close', view: 0 },
-  { kind: 'gc', view: 0 },
-  { kind: 'open', view: 1 },
-  { kind: 'close', view: 1 },
-  { kind: 'gc', view: 1 },
-  { kind: 'open', view: 2 },
-  { kind: 'close', view: 2 },
-  { kind: 'gc', view: 2 },
-  { kind: 'open', view: 3 },
+// Ticket 1 plays slowly enough to follow. Tickets 2 and 3 repeat the same
+// pattern, so they play fast; the whole run stays close to the other scenes.
+const SLOW = 900; // ms of animation per event
+const FAST = 300;
+const EVENTS: { kind: Kind; view: number; ms: number }[] = [
+  { kind: 'open', view: 0, ms: SLOW },
+  { kind: 'close', view: 0, ms: SLOW },
+  { kind: 'gc', view: 0, ms: SLOW },
+  { kind: 'open', view: 1, ms: FAST },
+  { kind: 'close', view: 1, ms: FAST },
+  { kind: 'gc', view: 1, ms: FAST },
+  { kind: 'open', view: 2, ms: FAST },
+  { kind: 'close', view: 2, ms: FAST },
+  { kind: 'gc', view: 2, ms: FAST },
+  { kind: 'open', view: 3, ms: SLOW },
 ];
-export const SPAN = EVENTS.length * STEP;
+const START = EVENTS.map((_, i) => EVENTS.slice(0, i).reduce((sum, ev) => sum + ev.ms, 0));
+export const SPAN = START[START.length - 1] + EVENTS[EVENTS.length - 1].ms;
 
 export interface Snapshot {
   kind: Kind | 'start';
@@ -58,7 +62,11 @@ export const simulate = (mode: Mode): Snapshot[] => {
 
 export type Sim = Snapshot[];
 
-export const snapshotAt = (sim: Sim, t: number) => sim[Math.min(Math.floor(t / STEP) + 1, sim.length - 1)];
+export const snapshotAt = (sim: Sim, t: number) => {
+  let i = 0;
+  while (i + 1 < START.length && START[i + 1] <= t) i++;
+  return sim[i + 1];
+};
 
 export const ROOT_NAMES: Record<Root, string> = {
   doc: 'document',
@@ -120,15 +128,15 @@ const last: Record<Mode, string> = {
 
 export const stepsFor = (mode: Mode) => [
   {
-    t: 0,
+    t: START[0],
     text:
       'You open ticket 1. The page adds its view to the document and starts a timer that updates “updated 2 min ago” every second. The timer’s function uses the view, so it keeps a reference to it.' +
       (mode === 'cache' ? ' The code also stores the view in viewCache, so the ticket opens fast next time.' : ''),
   },
-  { t: STEP, text: close[mode] },
-  { t: 2 * STEP, text: gc[mode] },
-  { t: 3 * STEP, text: 'You open and close tickets 2 and 3. The same thing happens each time.' },
-  { t: 9 * STEP, text: last[mode] },
+  { t: START[1], text: close[mode] },
+  { t: START[2], text: gc[mode] },
+  { t: START[3], text: 'You open and close tickets 2 and 3. The same thing happens each time.' },
+  { t: START[9], text: last[mode] },
 ];
 
 export const verdictFor = (mode: Mode): [string, string, string, Tone] => {
