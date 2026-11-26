@@ -1,8 +1,4 @@
 ---
-// Runtime validation scene: an order page reads an API response. The visitor picks
-// what the API sends and what the code does with it, and sees what survives the
-// build, what checks the data at run time, and what reaches the screen.
-// Data and text: data-sim.ts. Parts marked data-for show only for that code choice.
 import '../../styles/sim.css';
 import { FIELDS } from './data-sim';
 ---
@@ -13,17 +9,17 @@ import { FIELDS } from './data-sim';
       <legend class="sx-label">What does the API send?</legend>
       <div class="sx-choices">
         <label class="sx-choice">
-          <input type="radio" name="dv-data" value="ok" data-data />
+          <input type="radio" name="dv-data" value="ok" />
           <span class="sx-choice-main">What the type says</span>
           <span class="sx-choice-sub">total is a number</span>
         </label>
         <label class="sx-choice">
-          <input type="radio" name="dv-data" value="string" checked data-data />
+          <input type="radio" name="dv-data" value="string" checked />
           <span class="sx-choice-main">total as text</span>
           <span class="sx-choice-sub">"42.95" instead of 42.95</span>
         </label>
         <label class="sx-choice">
-          <input type="radio" name="dv-data" value="status" data-data />
+          <input type="radio" name="dv-data" value="status" />
           <span class="sx-choice-main">A new status</span>
           <span class="sx-choice-sub">"returned"</span>
         </label>
@@ -33,12 +29,12 @@ import { FIELDS } from './data-sim';
       <legend class="sx-label">What does the code do with it?</legend>
       <div class="sx-choices">
         <label class="sx-choice">
-          <input type="radio" name="dv-code" value="trust" checked data-code />
+          <input type="radio" name="dv-code" value="trust" checked />
           <span class="sx-choice-main">Trust the type</span>
           <span class="sx-choice-sub"><code>as Order</code></span>
         </label>
         <label class="sx-choice">
-          <input type="radio" name="dv-code" value="schema" data-code />
+          <input type="radio" name="dv-code" value="schema" />
           <span class="sx-choice-main">Check with a schema</span>
           <span class="sx-choice-sub">Zod, <code>Order.parse()</code></span>
         </label>
@@ -57,12 +53,12 @@ import { FIELDS } from './data-sim';
       </div>
     </div>
 
-    <div class="dv-band dv-run">
+    <div class="dv-band">
       <p class="dv-band-head"><span class="dv-band-n">2</span> Run <span class="dv-band-hint">the response arrives in the browser</span></p>
       <div class="dv-flow">
         <div class="dv-node dv-json" data-band="1">
           <p class="dv-node-name">API response</p>
-          <pre class="dv-code dv-json-code"><span>{'{'}</span>{FIELDS.map((f, i) => (
+          <pre class="dv-code"><span>{'{'}</span>{FIELDS.map((f, i) => (
             <span class="dv-field" data-field={f}>  "{f}": <span data-value></span>{i < FIELDS.length - 1 ? ',' : ''}<span class="dv-tag" data-tag hidden>changed</span></span>
           ))}<span>{'}'}</span></pre>
         </div>
@@ -86,7 +82,7 @@ import { FIELDS } from './data-sim';
 
         <div class="dv-node dv-screen" data-band="3">
           <p class="dv-node-name">Order page</p>
-          <div class="sx-screen dv-page" data-screen>
+          <div class="sx-screen dv-page">
             <p class="dv-order">Order #1042</p>
             <div class="dv-ok" data-ok>
               <p class="dv-row" data-row="status">Status: <strong data-status></strong></p>
@@ -133,7 +129,6 @@ import { FIELDS } from './data-sim';
     let d: Data = 'string';
     let c: Code = 'trust';
 
-    // Everything that depends on the choices, in its finished form.
     const draw = () => {
       d = picked('dv-data') as Data;
       c = picked('dv-code') as Code;
@@ -161,7 +156,6 @@ import { FIELDS } from './data-sim';
       stepList.set(steps(d, c));
     };
 
-    // Which stage is lit, and how many fields the edge has checked so far.
     const frame = (t: number) => {
       const stage = Math.min(Math.floor(t / STEP), 4);
       fig.dataset.stage = String(stage);
@@ -185,7 +179,6 @@ import { FIELDS } from './data-sim';
       stop = play(SPAN, 1, frame, finish);
     };
 
-    // A new choice shows its finished run at once. Only the button plays it.
     const show = () => {
       stop();
       draw();
@@ -200,8 +193,10 @@ import { FIELDS } from './data-sim';
 </script>
 
 <style is:global>
-  .dv .dv-controls {
-    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  @media (width > 62rem) {
+    .dv .dv-controls {
+      grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+    }
   }
 
   /* WebKit stops matching :focus-visible after an arrow key moves between radios. */
@@ -217,12 +212,10 @@ import { FIELDS } from './data-sim';
   .dv .dv-fig {
     display: grid;
     gap: var(--space-5);
-    margin: 0;
     font-size: var(--label);
     line-height: var(--diagram-leading);
   }
 
-  /* ---------- Bands: build, then run ---------- */
   .dv .dv-band {
     display: grid;
     gap: var(--space-3);
@@ -290,7 +283,6 @@ import { FIELDS } from './data-sim';
     border-left: 3px solid transparent;
   }
 
-  /* Removed by the build: struck out, faded and marked in the gutter. Not colour alone. */
   .dv .dv-code del {
     color: var(--ink-3);
     text-decoration-thickness: 2px;
@@ -300,20 +292,14 @@ import { FIELDS } from './data-sim';
     border-left-color: var(--ink-3);
   }
 
-  .dv .dv-build-note {
-    color: var(--ink-2);
-  }
-
   .dv .dv-zero {
     color: var(--good);
     font-weight: 750;
   }
 
-  /* ---------- Run: response → edge → page ---------- */
   .dv .dv-flow {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 2.5rem minmax(0, 1.15fr) 2.5rem minmax(0, 1fr);
-    align-items: stretch;
   }
 
   .dv .dv-json {
@@ -342,10 +328,6 @@ import { FIELDS } from './data-sim';
     font-weight: 700;
   }
 
-  .dv .dv-tag[hidden] {
-    display: none;
-  }
-
   .dv .dv-arrow {
     position: relative;
     align-self: center;
@@ -370,7 +352,6 @@ import { FIELDS } from './data-sim';
     display: none;
   }
 
-  /* The edge: an open, dashed gate when nothing checks; a solid one when a schema checks. */
   .dv .dv-edge:not(.is-schema) {
     box-shadow: none;
     outline: 2px dashed var(--ink-3);
@@ -387,6 +368,7 @@ import { FIELDS } from './data-sim';
     box-shadow: inset 0 0 0 4px var(--ink);
   }
 
+  .dv .dv-build-note,
   .dv .dv-edge-sub {
     color: var(--ink-2);
   }
@@ -422,7 +404,6 @@ import { FIELDS } from './data-sim';
     opacity: 0;
   }
 
-  /* The order page: the mock screen is the node's frame. */
   .dv .dv-node.dv-screen {
     padding: 0;
     box-shadow: none;
@@ -443,16 +424,10 @@ import { FIELDS } from './data-sim';
     gap: var(--space-1);
   }
 
-  .dv .dv-ok[hidden],
-  .dv .dv-error[hidden] {
-    display: none;
-  }
-
   .dv .dv-row strong {
     font-variant-numeric: tabular-nums;
   }
 
-  /* Wrong on screen: thick underline and colour, not colour alone. */
   .dv .dv-row.is-wrong strong {
     color: var(--bad);
     text-decoration: underline wavy var(--bad);
@@ -469,7 +444,6 @@ import { FIELDS } from './data-sim';
     justify-content: center;
   }
 
-  /* ---------- Stages while the run plays ---------- */
   .dv .dv-fig[data-stage='0'] [data-band='1'],
   .dv .dv-fig[data-stage='0'] [data-band='2'],
   .dv .dv-fig[data-stage='0'] [data-band='3'],
@@ -487,12 +461,7 @@ import { FIELDS } from './data-sim';
     opacity: 1;
   }
 
-  /* ---------- Narrow screens: the run flows down ---------- */
   @media (max-width: 62rem) {
-    .dv .dv-controls {
-      grid-template-columns: 1fr;
-    }
-
     .dv .dv-flow {
       grid-template-columns: minmax(0, 1fr);
       grid-template-rows: auto 2.25rem auto 2.25rem auto;
