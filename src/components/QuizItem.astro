@@ -1,6 +1,4 @@
 ---
-// One interview question. Recall first: the question alone, then the key points
-// to check yourself against, then a real case to answer, then the full answer.
 import BugArt, { type Art } from './web-platform/BugArt.astro';
 
 interface Props {
@@ -13,7 +11,6 @@ interface Props {
   why: string;
   myth: string;
   points: string[];
-  /** A follow-up for senior practice: which evidence would confirm the diagnosis? */
   evidence?: { question: string; answer: string };
   href?: string;
 }
@@ -22,7 +19,7 @@ const { n, art, question, scenario, options, correct, why, myth, points, evidenc
 const letters = 'ABCD';
 ---
 
-<li class="qz-item" data-qz-item data-n={n} data-correct={correct} data-stage="ask" aria-labelledby={`qz-${n}`}>
+<li class="qz-item" data-qz-item data-n={n} data-correct={correct} aria-labelledby={`qz-${n}`}>
   <div class="qz-side" aria-hidden="true">
     <span class="qz-n">{n}</span>
     <BugArt art={art} />
@@ -57,7 +54,7 @@ const letters = 'ABCD';
       <div class="qz-options" role="group" aria-label={`Answers for the case in question ${n}`}>
         {
           options.map((o, i) => (
-            <button type="button" class="qz-option" data-i={i} disabled>
+            <button type="button" class="qz-option" disabled>
               <span class="qz-letter" aria-hidden="true">{letters[i]}</span>
               <span class="qz-text">{o}</span>
               <span class="qz-mark" data-mark />
