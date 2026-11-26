@@ -1,15 +1,12 @@
 ---
 import BugArt, { type Art } from './BugArt.astro';
 
-// The guide's summary: eight places where frontend bugs start,
-// grouped by where they happen, from the network down to the screen.
-// Each zone links to its chapter, or to its self-test question until the chapter exists.
 interface Zone {
   n: string;
   symptom: string;
   cause: string;
   href?: string;
-  art: string;
+  art: Art;
 }
 
 interface Band {
@@ -106,20 +103,17 @@ const bands: Band[] = [
             <p class="band-hint">{band.hint}</p>
           </div>
           <ul class="zones">
-            {band.zones.map((z) => {
-              // Until a chapter exists, the zone links to its question in the self-test.
-              return (
-                <li>
-                  <a class="zone is-live" href={z.href ?? `#qz-${z.n}`}>
-                    <span class="art"><BugArt art={z.art as Art} /></span>
-                    <span class="z-n">{z.n}</span>
-                    <span class="z-symptom">{z.symptom}</span>
-                    <span class="z-cause">{z.cause}</span>
-                    <span class="z-go">{z.href ? `Chapter ${z.n}` : `No chapter yet. Self-test question ${z.n}`}</span>
-                  </a>
-                </li>
-              );
-            })}
+            {band.zones.map((z) => (
+              <li>
+                <a class="zone" href={z.href ?? `#qz-${z.n}`}>
+                  <span class="art"><BugArt art={z.art} /></span>
+                  <span class="z-n">{z.n}</span>
+                  <span class="z-symptom">{z.symptom}</span>
+                  <span class="z-cause">{z.cause}</span>
+                  <span class="z-go">{z.href ? `Chapter ${z.n}` : `No chapter yet. Self-test question ${z.n}`}</span>
+                </a>
+              </li>
+            ))}
           </ul>
         </div>
       ))
@@ -145,7 +139,6 @@ const bands: Band[] = [
     gap: var(--space-5);
   }
 
-  /* The line: data flows from the network to the screen. */
   .bands::before {
     content: '';
     position: absolute;
@@ -227,8 +220,8 @@ const bands: Band[] = [
     transition: transform 0.3s cubic-bezier(.3,0,.2,1);
   }
 
-  .zone.is-live:hover .art,
-  .zone.is-live:focus-visible .art {
+  .zone:hover .art,
+  .zone:focus-visible .art {
     transform: translateY(-4px);
   }
 
@@ -251,19 +244,15 @@ const bands: Band[] = [
   .z-go {
     grid-area: go;
     margin-top: var(--space-2);
-    color: var(--ink-3);
-  }
-
-  .zone.is-live .z-go {
     color: var(--ink);
     font-weight: 700;
   }
 
-  .zone.is-live .z-go::after {
+  .z-go::after {
     content: ' ↓';
   }
 
-  .zone.is-live:hover .z-symptom {
+  .zone:hover .z-symptom {
     text-decoration: underline;
     text-decoration-thickness: 2px;
     text-underline-offset: 0.2em;
