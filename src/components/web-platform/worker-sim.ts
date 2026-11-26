@@ -1,4 +1,3 @@
-// Model and text for the web worker scene.
 // Teaching model, simplified: the main thread runs one task at a time, oldest first
 // (HTML event loop). The worker runs on its own thread. Times are illustrative,
 // not measured: reading all returned rows stands for "a big result costs main-thread time".
@@ -6,21 +5,21 @@ import type { Tone } from '../../scripts/sim';
 
 export type Mode = 'block' | 'pieces' | 'worker';
 export type Back = 'all' | 'screen';
-export type Kind = 'parse' | 'piece' | 'key' | 'render' | 'send' | 'copy';
+type Kind = 'parse' | 'piece' | 'key' | 'render' | 'send' | 'copy';
 
 export const SPAN = 2400;
-export const DROP = 100; // the file is dropped and the work starts
+const DROP = 100; // the file is dropped and the work starts
 export const PARSE = 1500; // parsing time, the same on either thread
-export const PIECE = 40;
-export const KEY = 10; // one key handler
+const PIECE = 40;
+const KEY = 10; // one key handler
 export const RENDER = 40; // build the table of visible rows: a short task
-export const SEND = 5; // post the file's bytes to the worker (transferred, no copy)
-export const COPY: Record<Back, number> = { all: 450, screen: 5 }; // read the returned rows on the main thread
-export const KEYS = [300, 600, 900, 1200, 1500, 1800];
+const SEND = 5; // post the file's bytes to the worker (transferred, no copy)
+const COPY: Record<Back, number> = { all: 450, screen: 5 }; // read the returned rows on the main thread
+const KEYS = [300, 600, 900, 1200, 1500, 1800];
 export const WORD = 'berlin';
 
-export interface Block { kind: Kind; start: number; end: number }
-export interface Key { at: number; start: number; end: number; wait: number }
+interface Block { kind: Kind; start: number; end: number }
+interface Key { at: number; start: number; end: number; wait: number }
 interface Job { kind: Kind; ready: number; dur: number; order: number; left?: number; key?: number }
 
 export const simulate = (mode: Mode, back: Back) => {
@@ -45,7 +44,6 @@ export const simulate = (mode: Mode, back: Back) => {
       t = Math.min(...queue.map((j) => j.ready));
       continue;
     }
-    // When the thread is free, it takes the job that was queued first.
     ready.sort((a, b) => a.ready - b.ready || a.order - b.order);
     const job = ready[0];
     queue.splice(queue.indexOf(job), 1);
@@ -86,7 +84,6 @@ export type Sim = ReturnType<typeof simulate>;
 export const ms = (n: number) => `${Math.round(n)} ms`;
 const letter = (i: number) => `“${WORD[i]}”`;
 
-/** Numbered steps with the time at which each one happens. */
 export const stepsFor = (s: Sim) => {
   const ev: { t: number; text: string }[] = [];
   const during = s.keys.filter((k) => k.at < s.parseEnd);
