@@ -449,13 +449,16 @@ import '../../styles/sim.css';
       font-size: clamp(2.5rem, 5vw, 3.75rem);
     }
 
+    .sx-range {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+    }
+
     .sx-range-zone {
-      width: 50%;
+      position: static;
     }
 
     .zone-fresh {
-      left: 0;
-      right: auto;
       justify-content: flex-start;
       color: var(--good);
       background: color-mix(in srgb, var(--good) 15%, var(--paper));
