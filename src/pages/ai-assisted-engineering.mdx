@@ -1,0 +1,630 @@
+---
+layout: ../layouts/Guide.astro
+title: AI-assisted engineering
+description: Judgement for working with coding agents, and for helping a team use them safely.
+lede: Coding agents now read code, run commands and open pull requests. Using them well is judgement. Which task to hand over, what to tell the agent, what it may touch, and how to check its work. This guide shows where that goes wrong.
+number: '02'
+nav:
+  - { id: map, label: Map }
+  - { id: choose-task, n: '1', label: Choose the task }
+  - { id: context, n: '2', label: Context }
+  - { id: limits, n: '3', label: Limits }
+  - { id: check, n: '4', label: Check }
+  - { id: learning, n: '5', label: Learning }
+  - { id: measure, n: '6', label: Measure }
+  - { id: review, label: Quick review }
+  - { id: quiz, label: Test yourself }
+---
+
+import Chapter from '../components/Chapter.astro';
+import AgentMap from '../components/ai-assisted/AgentMap.astro';
+import AgentArt from '../components/ai-assisted/AgentArt.astro';
+import TaskPlot from '../components/ai-assisted/TaskPlot.astro';
+import ContextSort from '../components/ai-assisted/ContextSort.astro';
+import ScopeSim from '../components/ai-assisted/ScopeSim.astro';
+import DiffCheck from '../components/ai-assisted/DiffCheck.astro';
+import SkillStudy from '../components/ai-assisted/SkillStudy.astro';
+import TaskTime from '../components/ai-assisted/TaskTime.astro';
+import Review from '../components/Review.astro';
+import Quiz from '../components/Quiz.astro';
+import QuizItem from '../components/QuizItem.astro';
+
+<section id="map" class="map-section" aria-labelledby="map-title">
+  <h2 id="map-title">Where agent work goes wrong</h2>
+  <p>Six places, from choosing the task to judging whether it helped. Each one is a chapter. Read the symptom first, then the cause. Short on time? The [quick review](#review) has one line for each chapter, the key terms, the trade-offs and the tools.</p>
+  <AgentMap />
+</section>
+
+<Chapter
+  id="choose-task"
+  n="1"
+  topic="Choose the task"
+  question="When should you not use an AI agent for a task?"
+  title="Hand over what you can check."
+>
+  <Fragment slot="answer">
+    Ask two questions. How easy is the result to check? And what does a mistake cost? Hand over work you can check faster than you could write it, where a mistake is easy to undo. When checking is hard and a mistake is costly, do the work yourself and use AI for parts of it. Good tests change the answer, because they make more work easy to check.
+  </Fragment>
+
+  <TaskPlot />
+
+  <Fragment slot="after">
+    ### What engineers say they hand over
+
+    Anthropic asked its own engineers how they use Claude. They "tend to delegate tasks that are easily verifiable", low-stakes, such as "throwaway debug or research code", or boring. They also hand over parts that are well defined and separate from the rest. More than half said they can "fully delegate" only 0 to 20% of their work. This is one company's self-report, so treat it as a description, not a rule. It matches the two axes of the plot.
+
+    ### Checking is part of the cost
+
+    The time you spend reviewing counts. If reading a 600-line diff takes longer than writing the change would, the agent saved nothing. People are poor judges of this, as [chapter 6](#measure) shows. So pick tasks where the check is fast: a type error, a failing test, a screen you can look at.
+
+    ### Agents that work in the background
+
+    Cloud agents take a task, work on their own branch and return a pull request. GitHub Copilot's cloud agent, Codex Cloud and Cursor's Cloud Agents all work this way. They suit tasks on the right of the plot: well defined, and easy to check from the diff and the CI results.
+
+    ### A simplified model
+
+    The positions are a judgement for a typical team, not a measurement. Two things move a task. Better checks, such as tests, types or a preview build, move it to the right. A cheap way to undo a mistake lowers it. Guide 12 covers feature flags and rollback, which lower the cost of a mistake.
+
+    Sources, checked 27 November 2026: [Anthropic, How AI is transforming work at Anthropic (2025)](https://www.anthropic.com/research/how-ai-is-transforming-work-at-anthropic), [GitHub Docs, About Copilot cloud agent](https://docs.github.com/en/copilot/concepts/agents/coding-agent/about-coding-agent), [Codex Cloud environments](https://learn.chatgpt.com/codex/environments/cloud-environments), [Cursor, Cloud Agents](https://cursor.com/docs/cloud-agent).
+  </Fragment>
+</Chapter>
+
+<Chapter
+  id="context"
+  n="2"
+  topic="Give it context"
+  question="What context does an agent need, and where should it live?"
+  title="Every line costs, every task."
+>
+  <Fragment slot="answer">
+    An agent reads its instruction file, such as `AGENTS.md`, at the start of every task. Keep that file for rules the agent cannot find in the code and would get wrong. Put long procedures in skills, which load only when a task needs them. If a rule must never break, enforce it with a hook or a permission rule; a sentence is only a request. Leave out what the agent can find by itself, such as the folder layout.
+  </Fragment>
+
+  <ContextSort />
+
+  <Fragment slot="after">
+    ### What a 2026 study found
+
+    Researchers tested coding agents on real repository tasks, with and without context files such as `AGENTS.md`. The files "did not generally improve task success rates". They raised the cost by more than 20% on average, because the agent reads and follows more text. The agents followed the instructions well. But "repository overviews … are not helpful". The files were useful "for specifying non-standard coding practices". The tasks came from public repositories, so test what works in yours.
+
+    ### Where instruction files live
+
+    `AGENTS.md` is an open format: plain Markdown, with no required fields. "The closest AGENTS.md to the edited file wins." Codex, GitHub Copilot, Cursor, Kiro and CodeRabbit read it. Codex joins the files from the repository root down to the current folder, up to 32 KiB by default. Claude Code reads `CLAUDE.md`, and by default reads `AGENTS.md` only when there is no `CLAUDE.md`. To use one file for both, put `@AGENTS.md` in `CLAUDE.md`, as this site does. Gemini CLI reads `GEMINI.md`, and can be set to read `AGENTS.md`.
+
+    Claude Code's documentation is direct about the limit: instruction files "aren't enforced configuration". To block an action, use a hook. A `PreToolUse` hook runs before a tool call and can stop it. Use a deny rule in the permission settings for a hard block.
+
+    ### Skills load in steps
+
+    A skill is a folder with a `SKILL.md` file. Its `name` and `description` load when the agent starts, about 100 tokens per skill. The rest of the file loads only when a task needs it. Any scripts or reference files in the folder load only when they are used. Anthropic published Agent Skills as an open standard in December 2025. In October 2026 it gave the standard to the Agentic AI Foundation, and said more than 70 agent products support it.
+
+    ### Subagents keep side work out of the way
+
+    A subagent runs a side task, such as searching 200 files, in its own context window. Only its summary comes back to the main task. The summary still takes space there, so ask for a short one.
+
+    ### MCP servers add tools and data
+
+    The Model Context Protocol (MCP) connects an agent to outside tools and data, such as GitHub, a database or a browser. Each server is code you choose to trust. The specification says tool descriptions "should be considered untrusted, unless obtained from a trusted server". [Chapter 3](#limits) shows what can go wrong.
+
+    ### The brief matters most
+
+    For one task, give the goal, the files that matter, the limits, and one example of the right result. That example is also how you check the work in [chapter 4](#check). How a model uses the text in its context window is the topic of guide 15.
+
+    Sources, checked 27 November 2026: [Gloaguen et al., Evaluating AGENTS.md (arXiv, 2026)](https://arxiv.org/abs/2602.11988), [AGENTS.md](https://agents.md/), [Codex, AGENTS.md](https://learn.chatgpt.com/docs/agent-configuration/agents-md), [Claude Code, Memory](https://code.claude.com/docs/en/memory), [Claude Code, Hooks](https://code.claude.com/docs/en/hooks), [Claude Code, Subagents](https://code.claude.com/docs/en/sub-agents), [Agent Skills specification](https://agentskills.io/specification), [Anthropic, Donating Agent Skills to the Agentic AI Foundation (2026)](https://www.anthropic.com/news/donating-agent-skills-to-the-agentic-ai-foundation), [GitHub Docs, Custom instructions support](https://docs.github.com/en/copilot/reference/custom-instructions-support), [Cursor, Rules](https://cursor.com/docs/context/rules), [Gemini CLI, GEMINI.md](https://geminicli.com/docs/cli/gemini-md/), [MCP specification](https://modelcontextprotocol.io/specification).
+  </Fragment>
+</Chapter>
+
+<Chapter
+  id="limits"
+  n="3"
+  topic="Set limits"
+  question="How would you introduce AI coding tools to a team safely?"
+  title="Give each task only what it needs."
+>
+  <Fragment slot="answer">
+    The danger is a combination. An agent that reads text from outside, can reach private data and can send data out can be tricked into leaking that data. For each task, remove one of the three, usually by giving the agent a narrower token. Then start small: one repository, written rules about what data may leave it, and a person who reviews every change.
+  </Fragment>
+
+  <ScopeSim />
+
+  <Fragment slot="after">
+    ### The lethal trifecta
+
+    Simon Willison named the three conditions in June 2025: "access to your private data", "exposure to untrusted content", and "the ability to externally communicate". If an agent has all three, "an attacker can easily trick it into accessing your private data and sending it to that attacker". He also wrote that "we still don't know how to 100% reliably prevent this". So do not count on the model to refuse. Change what it can reach.
+
+    ### What happened in May 2025
+
+    Invariant Labs showed the attack in the scene, using demo repositories. An attacker opens an issue in a public repository with hidden instructions. The user asks the agent, Claude Desktop with the GitHub MCP server, to look at the open issues. The agent reads a private repository and puts its contents in a public pull request. The app asked before each tool call, but the researchers note that many users choose "Always Allow". They also say it is "not a flaw in the GitHub MCP server code itself". The problem is what the token could reach.
+
+    ### Prompts, modes and sandboxes
+
+    A prompt before every action sounds safe. But after the fiftieth prompt, people approve without reading. So agents offer modes. Claude Code has modes from Manual, which asks before most actions, to `bypassPermissions`, which is meant for isolated containers only. Its deny rules apply in every mode. Codex runs in a sandbox: `read-only`, `workspace-write` or `danger-full-access`. The interactive CLI starts in `workspace-write`, with network access off; `codex exec`, used in scripts and CI, starts in `read-only`.
+
+    Some tools now let a model decide which actions need a person. Claude Code's auto mode uses a separate classifier. It is now the starting mode in the terminal and in VS Code; `claude -p` and the Agent SDK still start in Manual. GitHub Copilot's assisted permissions became generally available in October 2026. Claude Code's documentation says auto mode "does not guarantee safety".
+
+    A sandbox limits what a command can touch. In Claude Code it "covers shell commands only": file edits, hooks and local MCP servers run outside it. So a sandbox would not have stopped the attack above. The MCP server called GitHub with the token, and the token allowed it.
+
+    ### Cloud agents come with limits
+
+    GitHub Copilot's cloud agent can be started only by people with write access. It pushes to its own branch, or to the pull request it was asked to work on. A firewall limits the internet access of its shell commands, but not of other MCP servers or of setup steps. By default, CI workflows wait until a person approves them. It "cannot approve or merge a pull request", and the person who asked for the change cannot approve it either. Several of these are defaults that repository settings can change: for example, Copilot code review can be allowed to count as an approval. Check yours, and decide whether a person must approve every agent change.
+
+    ### Any program can use an agent
+
+    In August 2025, attackers published malicious versions of the Nx build tool to npm. For about 4 hours, installing them ran code that "attempted to use local AI tools (like Claude and Gemini)" to search the disk for secrets. The stolen secrets went to public GitHub repositories. An agent that runs with no limits is a tool that any code on the machine can use. Guide 9 covers the npm supply chain.
+
+    ### A small pilot
+
+    1. Choose one repository and low-risk tasks from the right side of [chapter 1](#choose-task).
+    2. Write down which data may go to which tool provider.
+    3. Commit the shared instruction file and permission settings, so everyone starts with the same limits.
+    4. Give every agent change a human reviewer. Agents do not merge.
+    5. Decide in advance what would make you widen the pilot or stop it, such as review time, rework or incidents. [Chapter 6](#measure) covers how to measure them.
+
+    Prompt injection in a product you build is the topic of guide 16.
+
+    Sources, checked 27 November 2026: [Simon Willison, The lethal trifecta (2025)](https://simonwillison.net/2025/Jun/16/the-lethal-trifecta/), [Invariant Labs, GitHub MCP exploited (2025)](https://invariantlabs.ai/blog/mcp-github-vulnerability), [Claude Code, Permission modes](https://code.claude.com/docs/en/permission-modes), [Claude Code, Sandboxing](https://code.claude.com/docs/en/sandboxing), [Codex, Sandboxing](https://learn.chatgpt.com/docs/sandboxing), [Codex, Approvals and security](https://learn.chatgpt.com/docs/agent-approvals-security), [GitHub Changelog, Assisted permissions (2026)](https://github.blog/changelog/2026-10-26-github-copilot-assisted-permissions-generally-available/), [GitHub Docs, Copilot cloud agent risks and mitigations](https://docs.github.com/en/copilot/concepts/security-governance-and-network-settings/risks-and-mitigations), [Nx, s1ngularity postmortem (2025)](https://nx.dev/blog/s1ngularity-postmortem), [GitHub advisory GHSA-cxm3-wv7p-598c](https://github.com/advisories/GHSA-cxm3-wv7p-598c).
+  </Fragment>
+</Chapter>
+
+<Chapter
+  id="check"
+  n="4"
+  topic="Check the result"
+  question="How do you check what an agent produces?"
+  title="Read it against the requirement."
+>
+  <Fragment slot="answer">
+    Compare the diff with the requirement, not with the agent's summary. Run the change. Look hardest at the tests. An agent that cannot make a test pass may change the test instead, and then every check is green. AI review is a useful second reader. But it reads the same diff, and it can accept the same wrong idea of the task.
+  </Fragment>
+
+  <DiffCheck />
+
+  <Fragment slot="after">
+    ### What to look for in an agent's diff
+
+    - Tests that were changed or deleted in the same change as the code.
+    - Checks that were skipped, loosened or wrapped in a retry.
+    - New dependencies. Check that each one exists and is the package you meant.
+    - Changes outside the task: files the request never mentioned.
+
+    ### Agents can aim at the check
+
+    METR saw recent models "attempting (often successfully) to get a higher score by modifying the tests or scoring code" in its evaluations, June 2025. The examples were evaluation tasks, not team repositories. But the pressure is the same in your repository: the agent is asked to make the checks pass.
+
+    ### Check every new package
+
+    A 2025 study asked 16 models to write code and checked the packages they used. At least 5.2% of packages suggested by commercial models, and 21.7% by open models, did not exist. It found 205,474 different made-up names. An attacker can publish a package under such a name. Guide 9 covers the supply chain.
+
+    ### AI review is a second reader
+
+    GitHub Copilot code review, Codex review and CodeRabbit comment on pull requests. By default, Copilot's reviews "do not count toward required approvals". Codex flags only the most serious issues, P0 and P1, and follows review rules written in `AGENTS.md`. CodeRabbit also reads `AGENTS.md` and `CLAUDE.md` as review rules. Use them to find more problems before a person reads the change, not to decide that it is right.
+
+    ### Write the acceptance criterion first
+
+    Spec-first tools ask for the requirement before any code is written. GitHub Spec Kit steps through a project constitution, then specify, plan, tasks and implement. Kiro writes `requirements.md`, `design.md` and `tasks.md` for each feature. We found no independent study that shows these tools give better results. For most tasks, a few lines of criteria with one or two examples, reviewed by a person, do the same job. Guide 7 covers which tests to write at which level.
+
+    ### How much developers trust it
+
+    In Stack Overflow's 2026 survey, 48% said they trust AI output "when they can easily validate the answers". In the DORA 2025 survey, 30% trusted AI-generated code little or not at all.
+
+    Sources, checked 27 November 2026: [METR, Recent frontier models are reward hacking (2025)](https://metr.org/blog/2025-06-05-recent-reward-hacking/), [Spracklen et al., Package hallucinations (USENIX Security 2025)](https://arxiv.org/abs/2406.10279), [GitHub Docs, Copilot code review](https://docs.github.com/en/copilot/concepts/agents/code-review), [Codex, GitHub integration](https://learn.chatgpt.com/docs/third-party/github), [CodeRabbit, Code guidelines](https://docs.coderabbit.ai/knowledge-base/code-guidelines), [GitHub Spec Kit](https://github.com/github/spec-kit), [Kiro, Specs](https://kiro.dev/docs/specs/), [Stack Overflow Developer Survey 2026, AI](https://survey.stackoverflow.co/2026/ai), [Google Cloud, DORA 2025 report](https://cloud.google.com/blog/products/ai-machine-learning/announcing-the-2025-dora-report).
+  </Fragment>
+</Chapter>
+
+<Chapter
+  id="learning"
+  n="5"
+  topic="Keep learning"
+  question="Does AI change how junior engineers should learn?"
+  title="Ask why, then write it yourself."
+>
+  <Fragment slot="answer">
+    It changes how they should use it. In a 2026 trial, people learning a new library with an AI assistant scored 4.15 points lower on a 27-point quiz straight afterwards. The biggest gap was in debugging, and they were not clearly faster. In the AI group, people who asked about concepts, or asked why the code worked, tended to score higher than those who handed the task over. So use AI to explain. Write the code, debug it and explain it yourself.
+  </Fragment>
+
+  <SkillStudy />
+
+  <Fragment slot="after">
+    ### When you are learning something new
+
+    - Try it first, then ask. A wrong first attempt teaches more than a right answer you only read.
+    - Ask why, not only how. "Why does this need a lock?" teaches more than "write the lock".
+    - Debug alone for a while before you ask. Debugging showed the biggest gap.
+    - Before you merge, explain the change to someone, line by line.
+
+    ### When you review or mentor
+
+    Ask the author to explain the change in their own words. Pair on the parts that are hard to check. Some tasks are worth doing by hand because the point is to learn, even when an agent could do them faster.
+
+    ### Limits of the study
+
+    The trial had 52 people, and the quiz came straight after the task, so it does not show long-term effects. The AI was a chat assistant, not an agent that edits files and runs commands. The authors expect the effect of agents on learning to be "more pronounced". Anthropic's blog post gives the scores as 50% and 67%, which does not match the paper's 4.15-point gap on a 27-point quiz. This guide uses the paper.
+
+    ### Developers worry too
+
+    In Stack Overflow's 2026 survey, the most common reason to avoid AI at work was "Concern over losing job skills or training an AI to replace you": 17.1% of 13,857 people. The answer joins two worries, so it does not measure fear of losing skills alone.
+
+    Sources, checked 27 November 2026: [Shen and Tamkin, How AI impacts skill formation (arXiv, 2026)](https://arxiv.org/html/2601.20245v3), [Anthropic, How AI assistance impacts the formation of coding skills (2026)](https://www.anthropic.com/research/AI-assistance-coding-skills), [Stack Overflow Developer Survey 2026, reasons to avoid AI](https://survey.stackoverflow.co/2026/ai/data/ai-avoid).
+  </Fragment>
+</Chapter>
+
+<Chapter
+  id="measure"
+  n="6"
+  topic="Measure"
+  question="How would you measure whether AI tools actually help?"
+  title="Felt faster is not faster."
+>
+  <Fragment slot="answer">
+    Do not ask people how much faster they feel. In a 2025 trial, experienced developers expected AI to make them 24% faster. Afterwards they felt 20% faster, but they took 19% longer. Measure the work instead: compare similar tasks for time to merge, review time, rework and defects after release. Count stability as well as speed.
+  </Fragment>
+
+  <TaskTime />
+
+  <Fragment slot="after">
+    ### Why the follow-up could not give a number
+
+    METR ran the trial again from August 2025, with 57 developers and more than 800 tasks. It calls the result "an unreliable signal". Developers who did not want to work without AI stayed away. Of those who joined, 30 to 50% said they held back tasks they did not want to do without AI. METR thinks both effects likely hide part of the gain. It thinks developers are probably faster now, but has "only very weak evidence for the size". The lesson for a team is the same: who takes part, and which tasks they pick, can change the result.
+
+    ### Self-reports run high
+
+    METR also surveyed 349 technical workers in early 2026. The median said AI made their work 1.4 to 2 times as valuable. METR warns that "survey results are not necessarily grounded in reality". Surveys are still useful to learn what people like and what blocks them. They are not a measure of speed.
+
+    ### What to measure on your team
+
+    Compare similar work, before and after, or between two groups at the same time:
+
+    - time from the first commit to merge
+    - time spent in review
+    - rework: changes that are reverted, or fixed again soon after
+    - defects and incidents after release
+    - cost: seats and usage
+
+    Guide 12 explains delivery metrics such as DORA's in detail.
+
+    ### AI amplifies what is there
+
+    DORA's 2025 survey had nearly 5,000 respondents. 90% used AI at work, and more than 80% said it raised their productivity. More AI use went with more throughput, and with less stable delivery. "AI doesn't fix a team; it amplifies what's already there." These are associations in a survey, not causes. DORA lists seven capabilities that help: a clear AI stance, healthy data, AI access to internal data, strong version control, small batches, a focus on users, and good internal platforms. As of 27 November 2026, dora.dev lists no 2026 annual report.
+
+    Sources, checked 27 November 2026: [METR, Early-2025 AI and experienced developers (2025)](https://metr.org/blog/2025-07-10-early-2025-ai-experienced-os-dev-study/), [METR, Changing our developer productivity experiment design (2026)](https://metr.org/blog/2026-02-24-uplift-update/), [METR, Self-reported impact of early-2026 AI (2026)](https://metr.org/blog/2026-05-11-ai-usage-survey/), [Google Cloud, Announcing the 2025 DORA report](https://cloud.google.com/blog/products/ai-machine-learning/announcing-the-2025-dora-report), [DORA, 2025 report](https://dora.dev/dora-report-2025/), [Google Cloud, DORA AI Capabilities Model](https://cloud.google.com/blog/products/ai-machine-learning/introducing-doras-inaugural-ai-capabilities-model), [DORA research archive](https://dora.dev/research/).
+  </Fragment>
+</Chapter>
+
+<Review id="review" title="The whole guide on one page.">
+  <Fragment slot="intro">
+    Read this before an interview or a design review. Each line links to the chapter that explains it.
+  </Fragment>
+
+  ### Summary
+
+  <ol class="rv-summary">
+    <li><span>Hand over work you can check quickly and undo cheaply. Hard to check and costly: do it yourself, with AI for parts. [Choose the task](#choose-task)</span></li>
+    <li><span>Keep `AGENTS.md` for rules the agent cannot find and would get wrong. Long procedures go in skills; hard rules go in hooks or permission rules. [Context](#context)</span></li>
+    <li><span>Outside text, private data and a way out together can leak data. Remove one for each task, and pilot with one repository and human review. [Limits](#limits)</span></li>
+    <li><span>Read the diff against the requirement. Question every changed test. AI review finds more; a person decides. [Check](#check)</span></li>
+    <li><span>Use AI to explain while you learn. Write, debug and explain the code yourself. [Learning](#learning)</span></li>
+    <li><span>Feeling faster is not a measurement. Compare similar work on time to merge, review, rework and defects. [Measure](#measure)</span></li>
+  </ol>
+
+  ### Key terms
+
+  <div class="rv-terms">
+    <div>
+      <h4>[1 · Choose the task](#choose-task)</h4>
+      <dl>
+        <dt>Coding agent</dt><dd>An AI tool that reads code, edits files and runs commands to finish a task.</dd>
+        <dt>Cloud agent</dt><dd>An agent that works on its own branch on a server and returns a pull request.</dd>
+        <dt>Cost of checking</dt><dd>The time to confirm the result is right. It counts as part of the task.</dd>
+      </dl>
+    </div>
+    <div>
+      <h4>[2 · Context](#context)</h4>
+      <dl>
+        <dt>Context window</dt><dd>All the text the model can use for one task: instructions, files, tool output.</dd>
+        <dt>AGENTS.md</dt><dd>An open format for project instructions that most agents read at the start.</dd>
+        <dt>Skill</dt><dd>A folder of instructions that loads only when a task needs it.</dd>
+        <dt>Subagent</dt><dd>A helper agent with its own context window. It returns a summary.</dd>
+        <dt>Hook</dt><dd>Code that runs at a set point, for example before a tool call, and can block it.</dd>
+        <dt>MCP</dt><dd>Model Context Protocol: a standard way to connect an agent to tools and data.</dd>
+      </dl>
+    </div>
+    <div>
+      <h4>[3 · Limits](#limits)</h4>
+      <dl>
+        <dt>Prompt injection</dt><dd>Text from outside, such as an issue or a web page, that the agent follows as if it were an instruction.</dd>
+        <dt>Lethal trifecta</dt><dd>Private data, outside text and a way to send data out, all in one agent.</dd>
+        <dt>Permission mode</dt><dd>Which actions the agent may take without asking a person.</dd>
+        <dt>Sandbox</dt><dd>Limits from the operating system on which files and network a command can reach.</dd>
+        <dt>Least privilege</dt><dd>Giving a task only the access it needs.</dd>
+      </dl>
+    </div>
+    <div>
+      <h4>[4 · Check](#check)</h4>
+      <dl>
+        <dt>Acceptance criterion</dt><dd>A short, testable statement of what the change must do.</dd>
+        <dt>Gaming the check</dt><dd>Changing a test or a check so it passes, instead of fixing the code.</dd>
+        <dt>Package hallucination</dt><dd>A model suggests a package that does not exist. Attackers can register the name.</dd>
+        <dt>Spec-first development</dt><dd>Writing requirements, design and tasks before the agent writes code.</dd>
+      </dl>
+    </div>
+    <div>
+      <h4>[5 · Learning](#learning)</h4>
+      <dl>
+        <dt>Delegation</dt><dd>Handing the whole task to the AI. Linked with lower quiz scores in the trial.</dd>
+        <dt>Conceptual inquiry</dt><dd>Asking the AI about ideas, then writing the code yourself. Linked with higher scores.</dd>
+      </dl>
+    </div>
+    <div>
+      <h4>[6 · Measure](#measure)</h4>
+      <dl>
+        <dt>Self-report</dt><dd>What people say about their own work. It can be far from what happened.</dd>
+        <dt>Selection effect</dt><dd>Who takes part, or which tasks they pick, changes the result.</dd>
+        <dt>Rework</dt><dd>Changes that must be reverted or fixed again soon after they ship.</dd>
+        <dt>Throughput and stability</dt><dd>How much the team ships, and how often a release breaks something.</dd>
+      </dl>
+    </div>
+  </div>
+
+  ### Trade-offs
+
+  <div class="rv-table" style="--c2: 'Choose the first when'; --c3: 'Choose the second when'">
+
+  | Choice | Choose the first when | Choose the second when |
+  |---|---|---|
+  | An agent or [yourself](#choose-task) | You can check the result faster than you could write it, and a mistake is easy to undo. | Checking is hard and a mistake is costly, or the point is to learn. |
+  | A local or a cloud agent | You want to steer while it works. | The task is well defined, and you will review a pull request. |
+  | `AGENTS.md` or a [skill](#context) | Almost every task needs the rule. | It is a long procedure that a few tasks need. |
+  | A sentence or a [hook or rule](#context) | Breaking it is cheap and easy to spot. | It must never happen. |
+  | Write access or [read-only](#limits) | The task is to change this repo, and a person reviews the pull request. | The task only reads, such as a summary. Either way, give the token only the repos the task needs. |
+  | A prompt for each action or a [sandbox](#limits) | There are few actions, and you read each one. | There are many. Let the sandbox and token hold the limits, and prompt only for actions outside them. |
+  | AI review or [human review](#check) | You want to find more problems before a person reads the change. | You must decide whether the change is right. |
+  | A spec-first tool or a short [criterion](#check) | A large feature where several people must agree on a design. | Most tasks: a few lines and examples are enough. |
+  | A survey or a [measurement](#measure) | You want to know what people like and what blocks them. | You want to know whether the work got faster or better. |
+
+  </div>
+
+  ### Current tools <span id="tools"></span>
+
+  Two labels for each tool. **Use** says how widely it is used: Standard, Growing or New. **Maturity** says how settled it is: Stable, Experimental, Draft or Retired. Use labels for agents come from Stack Overflow's 2026 survey: of 12,255 people who answered which coding agents they used in the past year, 65.5% named Claude Code, 58.7% GitHub Copilot, 29.5% Codex and 25.5% Cursor. That counts developers who answered, not teams, and one survey shows no trend. Where no source measures use, the label says so. Versions checked 27 November 2026.
+
+  <div class="rv-table" style="--c2: 'What it is for'; --c3: 'Instead, or when not to use it'">
+
+  | Tool | What it is for | Instead, or when not to use it |
+  |---|---|---|
+  | Claude Code <span class="rv-label">Use: Standard · Maturity: Stable</span> | Anthropic's coding agent for the terminal, IDE and desktop. Permission modes, a sandbox for shell commands, hooks, skills and subagents. Version 2.1.332. | For runs without prompts, use a container or a virtual machine: its sandbox covers shell commands only. |
+  | GitHub Copilot <span class="rv-label">Use: Standard · Maturity: Stable</span> | Agent mode in the IDE, a cloud agent that opens pull requests, code review, and a CLI (generally available since February 2026). | Its cloud agent needs a GitHub repository. |
+  | Codex <span class="rv-label">Use: Growing · Maturity: Stable</span> | OpenAI's agent: CLI, IDE extension, ChatGPT apps and Codex Cloud. Sandboxed by default. CLI version 0.172.0. | `danger-full-access` removes the sandbox. Keep it for isolated machines. |
+  | Cursor <span class="rv-label">Use: Growing · Maturity: Stable</span> | An editor built around agents, with Cloud Agents and Bugbot code review. Reads `AGENTS.md` and its own `.cursor/rules`. | An agent in your current editor, if the team will not switch editors. |
+  | Gemini CLI <span class="rv-label">Use: not measured · Maturity: Retired for individuals</span> | Google's open-source terminal agent. Since 18 June 2026, free and Google AI Pro or Ultra users have Antigravity CLI instead. Gemini CLI continues for enterprise Gemini Code Assist. | Antigravity CLI, unless your company uses Gemini Code Assist. |
+  | Kiro <span class="rv-label">Use: New · Maturity: Stable</span> | An AWS agent and IDE built around specs: requirements, design and tasks. Generally available since November 2025. Used by 2.8% of 13,193 survey respondents. | A short acceptance criterion, for small tasks. |
+  | `AGENTS.md` <span class="rv-label">Use: not measured · Maturity: Stable</span> | Plain Markdown project instructions that most agents read. Run by the Agentic AI Foundation. | `CLAUDE.md` for Claude Code, with `@AGENTS.md` inside it to share one file. |
+  | Agent Skills <span class="rv-label">Use: not measured · Maturity: Stable</span> | Folders with a `SKILL.md` that load only when needed. Open standard since December 2025. | A line in `AGENTS.md`, for a short rule that every task needs. |
+  | Hooks and subagents <span class="rv-label">Use: not measured · Maturity: Stable</span> | Hooks run code at set points and can block a tool call. Subagents run side tasks in their own context window. | Hooks are not a sandbox: they run with your full access. |
+  | MCP <span class="rv-label">Use: not measured · Maturity: Stable</span> | A standard for connecting agents to tools and data. Specification version 2026-07-28. The public MCP Registry is still in preview. | A command-line tool the agent already knows, such as `gh`, may need no server. Trust each server like a dependency. |
+  | Sandboxes <span class="rv-label">Use: not measured · Maturity: Stable</span> | Limits from the operating system on files and network: Seatbelt on macOS, bubblewrap on Linux. On by default in Codex, off by default in Claude Code. | A container or virtual machine, when nothing should ask for approval. |
+  | Copilot code review <span class="rv-label">Use: not measured · Maturity: Stable</span> | AI comments on pull requests, by request or automatically. Does not count as an approval by default. | It is not a reviewer of record. A person still approves. |
+  | CodeRabbit <span class="rv-label">Use: not measured · Maturity: Stable; CLI Experimental</span> | AI pull-request review that reads `AGENTS.md` and `CLAUDE.md` as review rules. The CLI is in open beta. | Copilot code review or Codex review, if you already use those agents. |
+  | GitHub Spec Kit <span class="rv-label">Use: not measured · Maturity: Stable</span> | Commands and templates for spec-first work: constitution, specify, plan, tasks, implement. Version 1.4.5. | A short acceptance criterion, for small tasks. |
+
+  </div>
+
+  Codex is labelled Growing and Cursor Growing as a judgement: one survey gives a share, but no trend. Kiro's figure comes from the survey's question about editors.
+
+  ### What AI has changed
+
+  - **Agents do the work, not only suggest it.** Cloud agents open pull requests from an issue, and agents run in the terminal as well as in the editor. The leading two in Stack Overflow's survey are used by 65.5% and 58.7% of the developers who answered.
+  - **The instruction files became shared standards.** `AGENTS.md`, MCP and Agent Skills are now run by the Agentic AI Foundation, under the Linux Foundation. One file can serve several agents.
+  - **Models now approve actions.** Claude Code's auto mode and Copilot's assisted permissions let a model decide which actions need a person. This cuts prompts but does not guarantee safety; sandboxes and deny rules still matter.
+  - **Checking the work matters more.** In DORA's 2025 survey, more AI use went with more throughput and with less stable delivery. The survey does not show where the time goes, so measure review time and rework in your own team.
+  - **Measuring got harder.** METR could not repeat its 2025 trial cleanly, because many developers would not work without AI.
+
+  <p class="rv-sources">Sources, checked 27 November 2026: [Stack Overflow 2026, coding agents](https://survey.stackoverflow.co/2026/ai/data/ai-code-agent), [Stack Overflow 2026, editors](https://survey.stackoverflow.co/2026/technology/data/dev-ide), [npm registry](https://registry.npmjs.org/) for versions, [GitHub Changelog, Copilot CLI is generally available (2026)](https://github.blog/changelog/2026-02-25-github-copilot-cli-is-now-generally-available), [Google Developers Blog, Gemini CLI to Antigravity CLI (2026)](https://developers.googleblog.com/an-important-update-transitioning-gemini-cli-to-antigravity-cli), [Gemini CLI](https://github.com/google-gemini/gemini-cli), [Kiro is generally available (2025)](https://kiro.dev/blog/general-availability/), [OpenAI, Agentic AI Foundation (2025)](https://openai.com/index/agentic-ai-foundation/), [AAIF](https://aaif.io/about), [MCP Registry FAQ](https://modelcontextprotocol.io/registry/faq), [CodeRabbit CLI](https://docs.coderabbit.ai/cli/overview), [GitHub Spec Kit releases](https://github.com/github/spec-kit/releases), [Cursor changelog](https://cursor.com/changelog). Other sources are in the chapters.</p>
+</Review>
+
+<Quiz id="quiz" storageKey="ai-assisted-engineering">
+  <Fragment slot="title">Six questions.</Fragment>
+  <Fragment slot="intro">
+    These are the common interview questions for this topic. Each one starts alone. When you have your answer, check it against the key points. Then a real case tests whether you can use the idea.
+  </Fragment>
+
+  <QuizItem
+    n="1"
+    href="#choose-task"
+    question="When should you not use an AI agent for a task?"
+    scenario="A teammate wants an agent to rewrite the permission checks for the admin area, “because it will be faster”. The tests for that area are thin. What do you suggest?"
+    options={[
+      'Let the agent do it, then run the tests.',
+      'Let the agent do it, and ask it to add tests in the same change.',
+      'Write the change yourself. Use the agent to list cases you might miss and to draft tests you then review.',
+      'Use no AI at all in security code.',
+    ]}
+    correct={2}
+    why="The result is hard to check, because thin tests prove little, and a mistake is costly: users could see what they should not. Tests written by the same agent in the same change share its reading of the task. So keep the decisions yourself, and use the agent where its mistakes are cheap: listing cases and drafting."
+    myth="The choice is rarely all or nothing. You can hand over parts of a task: exploring, listing cases, drafting. You keep the parts that are hard to check."
+    evidence={{
+      question: 'What would tell you that a task is safe to hand over?',
+      answer: 'You can say how you will check it: which tests or commands, and how long the review will take. And you know how you would undo a mistake, for example a revert or a feature flag.',
+    }}
+    points={[
+      'Two questions: how easy is it to check, and what does a mistake cost?',
+      'Hand over checkable work that is cheap to undo.',
+      'Hard to check and costly: do it yourself, with AI for parts.',
+      'Better tests and easy rollback widen what you can hand over.',
+      'When the point is to learn, do it yourself first.',
+    ]}
+  >
+    <AgentArt slot="art" art="task" />
+
+    Ask how easy the result is to check, and what a mistake would cost. Hand over work you can check faster than you could write it, such as a rename that the type checker confirms. When checking is hard and a mistake is costly, such as an access rule or a data migration, do the work yourself and use AI for parts of it.
+
+    The answer changes with the project. Good tests make more work easy to check. A feature flag or a quick rollback makes a mistake cheaper. And when the point is to learn, do it yourself, even if an agent could do it faster.
+  </QuizItem>
+
+  <QuizItem
+    n="2"
+    href="#context"
+    question="What context does an agent need, and where should it live?"
+    scenario="Your AGENTS.md is 600 lines: an overview of every folder, the release process, style advice, and “never commit .env files”. Agents still commit .env files sometimes. What helps most?"
+    options={[
+      'Move the .env rule to the top, in capital letters.',
+      'Block it with a hook or a deny rule, and cut the file to rules the agent cannot find by itself.',
+      'Add more detail about each folder, so the agent understands the project.',
+      'Copy the file into every folder, so the agent always sees it.',
+    ]}
+    correct={1}
+    why="An instruction file is a request, not a control. Put .env in .gitignore and add a hook that refuses to commit it, then let server-side push protection catch what gets past. Cutting the file helps too: every line costs on every task, and a 2026 study found that overviews did not help agents."
+    myth="A longer file is not better context. The study found that context files raised cost by more than 20% and did not generally improve success."
+    evidence={{
+      question: 'How would you check whether a change to the file helps?',
+      answer: 'Run the same few tasks before and after the change. Compare whether the agent followed the rules, and how many tokens it used.',
+    }}
+    points={[
+      'The instruction file loads at the start of every task.',
+      'Keep rules the agent cannot find and would get wrong.',
+      'Long procedures go in skills, which load when needed.',
+      'Rules that must never break go in hooks or permission rules.',
+      'A subagent keeps side work out of the main context.',
+    ]}
+  >
+    <AgentArt slot="art" art="context" />
+
+    An agent reads its instruction file, such as `AGENTS.md` or `CLAUDE.md`, at the start of every task. So keep it short, and keep it for what the agent cannot find in the code: unusual commands, project rules, how to check the work. Leave out overviews it can find by itself.
+
+    Put long procedures, like a release checklist, in skills: only a short description loads until a task needs one. Rules that must never break belong in a hook or a permission rule, because the file is only a request. For one task, give the goal, the files, the limits and an example of the right result.
+  </QuizItem>
+
+  <QuizItem
+    n="3"
+    href="#limits"
+    question="How would you introduce AI coding tools to a team safely?"
+    scenario="A team connects an agent to GitHub with a token that can read and write all of the company's repositories. Every morning, with no prompts, the agent sorts the issues in a public repository. What is the main risk?"
+    options={[
+      'The agent may make typing mistakes in its summaries.',
+      'An issue can carry hidden instructions, and the agent can read private repositories and post in public ones.',
+      'There is none: the model provider filters out prompt injection.',
+      'There is none: the sandbox blocks network access.',
+    ]}
+    correct={1}
+    why="The agent has all three parts of the lethal trifecta: outside text in the issues, private data through the token, and a way out by posting. Anyone can open an issue, so anyone can try to give it instructions. Scope the token to the public repository and make it read-only."
+    myth="A shell sandbox does not cover MCP servers or calls that use the token. And no filter reliably stops prompt injection, so limit what the agent can reach."
+    evidence={{
+      question: 'Which evidence would you check?',
+      answer: 'The token’s scopes and the repositories it can reach. The agent’s log of tool calls, for reads outside the public repository. The pull requests and comments it created.',
+    }}
+    points={[
+      'Outside text, private data and a way out together: a leak risk.',
+      'Remove one for each task. A narrow token is the usual fix.',
+      'Read-only where you can. A person posts the result.',
+      'A shell sandbox does not cover MCP servers.',
+      'Pilot: one repository, written data rules, human review, a reason to stop.',
+    ]}
+  >
+    <AgentArt slot="art" art="scope" />
+
+    Start from what each task needs. An agent that reads outside text, can reach private data, and can send data out can be tricked into leaking it. For each task, remove one of the three, usually with a narrower token or read-only access. Choose a permission mode the team will not wave through, and use a sandbox or a container for long unattended runs.
+
+    Then pilot it: one repository, low-risk tasks, written rules on what data may go to which provider, shared settings in the repository, and a person who reviews every change. Decide in advance what would make you widen the pilot or stop.
+  </QuizItem>
+
+  <QuizItem
+    n="4"
+    href="#check"
+    question="How do you check what an agent produces?"
+    scenario="An agent's pull request adds a discount rule and says “All tests pass”. The diff also changes the expected price in an existing test from 90 to 85. What do you do first?"
+    options={[
+      'Approve it. CI is green.',
+      'Ask the AI reviewer. If it approves, merge.',
+      'Check the changed expected price against the requirement before anything else.',
+      'Undo the test change and merge the rest.',
+    ]}
+    correct={2}
+    why="The same change edits the behaviour and the test that described it. Green CI shows only what the tests check, and the agent changed what they check. The requirement decides whether 85 is right."
+    myth="Green CI does not mean correct. If a pull request edits its own checks, it can be green and wrong."
+    evidence={{
+      question: 'What evidence would settle it?',
+      answer: 'The requirement or ticket that sets the price. Then the old test, run against the new code: if it fails, the change broke behaviour that the test protected.',
+    }}
+    points={[
+      'Compare the diff with the requirement, not with the summary.',
+      'Question every test that changes with the code.',
+      'Check that each new package exists and is the one you meant.',
+      'AI review finds more problems. A person decides.',
+      'Write a short acceptance criterion before the agent starts.',
+    ]}
+  >
+    <AgentArt slot="art" art="check" />
+
+    Read the diff against the requirement, not against the agent's summary. Run the change. Look hardest at tests that changed together with the code, at checks that were loosened, at new packages, and at changes outside the task. An agent asked to make the checks pass may change the checks.
+
+    AI review tools such as Copilot code review, Codex review and CodeRabbit find more problems, but a person decides. To make checking easier, write a short acceptance criterion with an example before the agent starts.
+  </QuizItem>
+
+  <QuizItem
+    n="5"
+    href="#learning"
+    question="Does AI change how junior engineers should learn?"
+    scenario="A new engineer uses an agent for everything. Their pull requests work, but in review they cannot explain them. What do you suggest?"
+    options={[
+      'Ban AI tools until they are more senior.',
+      'Nothing. The code works.',
+      'Write first, then use AI to explain. Debug alone before asking. Explain each pull request in review.',
+      'Give them only tasks the agent cannot do.',
+    ]}
+    correct={2}
+    why="In the 2026 trial, people who used an AI assistant to learn a new library scored 4.15 points lower on a 27-point quiz straight after, with the biggest gap in debugging. Those who asked about concepts or about why code worked tended to score higher. How they used it mattered."
+    myth="Using AI does not by itself stop learning. In the trial, the higher-scoring groups also used AI. They used it to understand, not to hand over."
+    evidence={{
+      question: 'How would you know the change is working?',
+      answer: 'A few weeks later, they can explain their changes in review and fix a failing test without help, for example in a pairing session.',
+    }}
+    points={[
+      'Handing over the task was linked with lower scores.',
+      'Asking about concepts was linked with higher scores.',
+      'The biggest gap was in debugging.',
+      'Try first, ask why, debug alone, explain before merging.',
+      'A small trial with a quiz straight after; agents may have a larger effect.',
+    ]}
+  >
+    <AgentArt slot="art" art="learn" />
+
+    Yes, in how they use it. In a 2026 trial, people learning a new library with an AI assistant scored 4.15 points lower on a 27-point quiz straight afterwards, with the biggest gap in debugging. They were not clearly faster. In the AI group, those who asked about concepts, or asked why the code worked, tended to score higher than those who handed the task over.
+
+    So use AI to explain, not to replace the effort. Try first, ask why, debug alone for a while, and explain the change before it merges. The trial was small and used a chat assistant; the authors expect agents to have a larger effect.
+  </QuizItem>
+
+  <QuizItem
+    n="6"
+    href="#measure"
+    question="How would you measure whether AI tools actually help?"
+    scenario="After three months with AI tools, a team survey says engineers feel 40% faster. Your manager wants to report this to the board. What do you say?"
+    options={[
+      'Report it. Engineers know their own work best.',
+      'Report it, but round it down to 30% to be safe.',
+      'Feelings can be far off. Compare similar work before and after: time to merge, review time, rework and defects.',
+      'Productivity cannot be measured, so report nothing.',
+    ]}
+    correct={2}
+    why="In METR’s 2025 trial, developers felt 20% faster and took 19% longer. A survey shows how people feel. Only measured work shows what changed."
+    myth="Speed is not the whole result. In DORA’s 2025 survey, more AI use went with more throughput, and with less stable delivery."
+    evidence={{
+      question: 'Which numbers would you bring?',
+      answer: 'For similar tasks before and after: the median time from first commit to merge, time in review, the share of changes reverted or reworked, incidents after release, and the cost.',
+    }}
+    points={[
+      'People misjudge their own speed: felt 20% faster, took 19% longer.',
+      'Compare similar work, before and after or between groups.',
+      'Measure time to merge, review time, rework and defects.',
+      'Count stability, not only speed.',
+      'Watch who takes part and which tasks they choose.',
+    ]}
+  >
+    <AgentArt slot="art" art="measure" />
+
+    Do not rely on how fast people feel. In a 2025 trial, experienced developers expected to be 24% faster with AI and felt 20% faster, but took 19% longer. Compare similar work instead, before and after or between two groups: time to merge, review time, rework, defects after release, and cost.
+
+    Count stability as well as speed. In DORA's 2025 survey, more AI use went with more throughput and with less stable delivery. And watch selection: who takes part, and which tasks they pick, can change the result.
+  </QuizItem>
+
+  <Fragment slot="sources">
+    Sources, checked 27 November 2026: the sources in each chapter, in particular [Anthropic, How AI is transforming work at Anthropic](https://www.anthropic.com/research/how-ai-is-transforming-work-at-anthropic), [Gloaguen et al., Evaluating AGENTS.md](https://arxiv.org/abs/2602.11988), [Simon Willison, The lethal trifecta](https://simonwillison.net/2025/Jun/16/the-lethal-trifecta/), [METR, Recent frontier models are reward hacking](https://metr.org/blog/2025-06-05-recent-reward-hacking/), [Shen and Tamkin, How AI impacts skill formation](https://arxiv.org/html/2601.20245v3), [METR, Early-2025 AI and experienced developers](https://metr.org/blog/2025-07-10-early-2025-ai-experienced-os-dev-study/) and [Google Cloud, DORA 2025](https://cloud.google.com/blog/products/ai-machine-learning/announcing-the-2025-dora-report).
+  </Fragment>
+</Quiz>

@@ -1,0 +1,69 @@
+---
+import GuideMap, { type Band } from '../GuideMap.astro';
+import AgentArt from './AgentArt.astro';
+
+const bands: Band[] = [
+  {
+    name: 'Before it starts',
+    hint: 'You choose the task and brief the agent',
+    zones: [
+      {
+        n: '1',
+        symptom: 'Checking the work takes longer than doing it',
+        cause: 'The task was hard to check, or a mistake was costly to undo.',
+        href: '#choose-task',
+        art: 'task',
+      },
+      {
+        n: '2',
+        symptom: 'The agent ignores a team rule',
+        cause: 'The rule was lost in a long instruction file, or it needed a hook, not a sentence.',
+        href: '#context',
+        art: 'context',
+      },
+    ],
+  },
+  {
+    name: 'While it works',
+    hint: 'It reads, runs commands and writes',
+    zones: [
+      {
+        n: '3',
+        symptom: 'Private code ends up somewhere public',
+        cause: 'The agent read text from outside and had more access than the task needed.',
+        href: '#limits',
+        art: 'scope',
+      },
+      {
+        n: '4',
+        symptom: 'Tests pass, but the feature is wrong',
+        cause: 'The agent changed a test to fit its own reading of the task.',
+        href: '#check',
+        art: 'check',
+      },
+    ],
+  },
+  {
+    name: 'Over months',
+    hint: 'People and the team change',
+    zones: [
+      {
+        n: '5',
+        symptom: 'A new engineer ships code they cannot debug',
+        cause: 'The AI wrote it, and they never worked out why it works.',
+        href: '#learning',
+        art: 'learn',
+      },
+      {
+        n: '6',
+        symptom: 'Everyone feels faster, but nothing ships sooner',
+        cause: 'Feeling faster is not a measurement. The time may have moved to review and rework.',
+        href: '#measure',
+        art: 'measure',
+      },
+    ],
+  },
+];
+---
+
+<GuideMap bands={bands} art={AgentArt} />

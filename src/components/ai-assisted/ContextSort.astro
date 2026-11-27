@@ -1,0 +1,304 @@
+---
+import '../../styles/sim.css';
+
+type Home = 'keep' | 'skill' | 'enforce' | 'delete';
+
+const HOMES: { id: Home; name: string; where: string }[] = [
+  { id: 'keep', name: 'Keep', where: 'AGENTS.md: read at the start of every task' },
+  { id: 'skill', name: 'Skill', where: 'A skill: only its description loads until it is needed' },
+  { id: 'enforce', name: 'Enforce', where: 'A hook or a permission rule: checked by code, not by the model' },
+  { id: 'delete', name: 'Delete', where: 'Deleted: the agent can find it, or it says nothing' },
+];
+
+const LINES: { text: string; home: Home; why: string }[] = [
+  {
+    text: 'This is an Astro site. Components are in src/components.',
+    home: 'delete',
+    why: 'The agent finds this by listing the files. A 2026 study found that overviews like this did not help agents, and every line costs on every task.',
+  },
+  {
+    text: 'Use pnpm. Never run npm install.',
+    home: 'keep',
+    why: 'A non-standard rule the agent would get wrong. It would guess npm and create a second lockfile.',
+  },
+  {
+    text: 'Run pnpm check and pnpm build before you say the work is done.',
+    home: 'keep',
+    why: 'It tells the agent how to check itself. The commands are short and needed on almost every task.',
+  },
+  {
+    text: 'Never read or print the .env file.',
+    home: 'enforce',
+    why: 'A sentence is a request. A deny rule blocks the file tools and commands such as cat. A script can still open the file, so keep real secrets out of the folder the agent works in.',
+  },
+  {
+    text: 'To release: bump the version, update the changelog, tag, push the tag, then check the deploy.',
+    home: 'skill',
+    why: 'A long procedure needed once a week. As a skill, only its one-line description loads until a task needs it.',
+  },
+  {
+    text: 'Write clean, readable code.',
+    home: 'delete',
+    why: 'The agent already tries to. The line gives it nothing it could act on or check.',
+  },
+  {
+    text: 'API dates are UTC strings. Do not convert them on the server.',
+    home: 'keep',
+    why: 'A project rule the code does not make obvious. This is the kind of line the study found useful.',
+  },
+  {
+    text: 'Do not push to main.',
+    home: 'enforce',
+    why: 'Branch protection on the server enforces this for people and agents alike. A sentence can be ignored.',
+  },
+];
+
+const nameOf = (h: Home) => HOMES.find((x) => x.id === h)!.name;
+---
+
+<div class="sx cs" data-cs>
+  <p class="cs-lead">
+    A draft <code>AGENTS.md</code> for a small site. For each line, choose where it belongs.
+  </p>
+
+  <div class="cs-grid">
+    <ol class="cs-lines">
+      {
+        LINES.map((l, i) => (
+          <li class="cs-line" data-line={i} data-home={l.home}>
+            <p class="cs-text" id={`cs-text-${i}`}>{l.text}</p>
+            <div class="cs-opts" role="radiogroup" aria-labelledby={`cs-text-${i}`}>
+              {HOMES.map((h) => (
+                <label class="cs-opt">
+                  <input type="radio" name={`cs-${i}`} value={h.id} />
+                  <span>{h.name}</span>
+                </label>
+              ))}
+            </div>
+            {/* Only the feedback for the line just changed is announced. */}
+            <div class="cs-feedback" aria-live="polite">
+              <p class="cs-why" data-why hidden>
+                <strong data-match hidden>Same as ours: {nameOf(l.home)}.</strong>
+                <strong data-differ hidden>Our call: {nameOf(l.home)}.</strong> {l.why}
+              </p>
+            </div>
+          </li>
+        ))
+      }
+    </ol>
+
+    <aside class="cs-homes">
+      {
+        HOMES.map((h) => (
+          <section class={`cs-home is-${h.id}`}>
+            <h4 class="cs-home-name">
+              {h.name} <span data-count={h.id}>0</span>
+            </h4>
+            <p class="cs-home-where">{h.where}</p>
+            <ul data-list={h.id} />
+          </section>
+        ))
+      }
+      <p class="cs-done" data-done hidden></p>
+    </aside>
+  </div>
+</div>
+
+<script>
+  for (const root of document.querySelectorAll<HTMLElement>('[data-cs]')) {
+    const lines = [...root.querySelectorAll<HTMLElement>('[data-line]')];
+    const done = root.querySelector<HTMLElement>('[data-done]')!;
+
+    // Browsers can restore checked radios on reload, so rebuild everything from the inputs.
+    const sync = () => {
+      for (const list of root.querySelectorAll<HTMLElement>('[data-list]')) list.replaceChildren();
+      const counts: Record<string, number> = { keep: 0, skill: 0, enforce: 0, delete: 0 };
+      let chosen = 0;
+      let same = 0;
+      for (const line of lines) {
+        const pick = line.querySelector<HTMLInputElement>('input:checked')?.value;
+        const why = line.querySelector<HTMLElement>('[data-why]')!;
+        why.hidden = !pick;
+        if (!pick) continue;
+        chosen++;
+        const match = pick === line.dataset.home;
+        if (match) same++;
+        line.querySelector<HTMLElement>('[data-match]')!.hidden = !match;
+        line.querySelector<HTMLElement>('[data-differ]')!.hidden = match;
+        counts[pick]++;
+        const item = document.createElement('li');
+        item.textContent = line.querySelector('.cs-text')!.textContent;
+        root.querySelector(`[data-list="${pick}"]`)!.append(item);
+      }
+      for (const [id, n] of Object.entries(counts)) root.querySelector(`[data-count="${id}"]`)!.textContent = String(n);
+      done.hidden = chosen < lines.length;
+      done.textContent = `${counts.keep} of ${lines.length} lines are left in AGENTS.md. Your choices match ours on ${same} of ${lines.length}.`;
+    };
+    root.addEventListener('change', sync);
+    sync();
+  }
+</script>
+
+<style is:global>
+  .cs .cs-lead {
+    margin: 0;
+    max-width: 40rem;
+    font-size: var(--text);
+  }
+
+  .cs-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+    gap: var(--space-5);
+    align-items: start;
+    font-size: var(--label);
+    line-height: var(--diagram-leading);
+  }
+
+  .cs-lines {
+    display: grid;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    border-top: 2px solid var(--faint);
+  }
+
+  .cs-line {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: var(--space-2) var(--space-4);
+    align-items: center;
+    padding: var(--space-3) 0;
+    border-bottom: 2px solid var(--faint);
+  }
+
+  .cs-text {
+    margin: 0;
+    font-family: var(--font-code);
+    font-size: 0.875rem;
+  }
+
+  .cs-opts {
+    display: flex;
+    gap: 4px;
+  }
+
+  .cs-opt {
+    position: relative;
+    cursor: pointer;
+  }
+
+  .cs-opt input {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    opacity: 0;
+    cursor: pointer;
+  }
+
+  /* A sibling selector, not :has(), so the choice shows in every browser. */
+  .cs-opt span {
+    display: grid;
+    place-items: center;
+    min-height: 44px;
+    padding: 0 var(--space-3);
+    border-radius: 22px;
+    box-shadow: inset 0 0 0 2px var(--faint);
+    color: var(--ink-2);
+    font-weight: 700;
+  }
+
+  .cs-opt input:checked + span {
+    background: var(--ink);
+    box-shadow: none;
+    color: var(--paper);
+  }
+
+  .cs-opt input:focus-visible + span {
+    outline: 3px solid var(--net);
+    outline-offset: 2px;
+  }
+
+  /* The wrapper stays in the grid while its text is hidden; cancel the row gap until it shows. */
+  .cs-feedback {
+    grid-column: 1 / -1;
+    margin-top: calc(var(--space-2) * -1);
+  }
+
+  .cs-why {
+    margin: var(--space-2) 0 0;
+    color: var(--ink-2);
+  }
+
+  .cs-why strong {
+    color: var(--ink);
+  }
+
+  .cs-homes {
+    position: sticky;
+    top: calc(var(--localnav-h) + var(--space-3));
+    display: grid;
+    gap: var(--space-4);
+  }
+
+  .cs-home {
+    padding-left: var(--space-3);
+    border-left: 4px solid var(--ink);
+  }
+
+  .cs-home.is-skill { border-left-style: dashed; }
+  .cs-home.is-enforce { border-left-color: var(--good); }
+  .cs-home.is-delete { border-left-color: var(--faint); }
+
+  .cs-home-name {
+    margin: 0;
+    font-size: var(--text);
+    font-weight: 800;
+  }
+
+  .cs-home-name span {
+    color: var(--ink-2);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .cs-home-where {
+    margin: 0;
+    color: var(--ink-2);
+  }
+
+  .cs-home ul {
+    margin: var(--space-2) 0 0;
+    padding: 0;
+    list-style: none;
+    font-family: var(--font-code);
+    font-size: 0.8125rem;
+  }
+
+  .cs-home.is-delete ul {
+    color: var(--ink-3);
+    text-decoration: line-through;
+  }
+
+  .cs-done {
+    margin: 0;
+    font-weight: 700;
+  }
+
+  @media (max-width: 62rem) {
+    .cs-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .cs-line {
+      grid-template-columns: 1fr;
+    }
+
+    .cs-opts {
+      flex-wrap: wrap;
+    }
+
+    .cs-homes {
+      position: static;
+    }
+  }
+</style>

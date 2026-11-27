@@ -31,7 +31,7 @@ The numbers show the study order.
 | # | Guide | Status |
 |---|---|---|
 | 1 | Frontend System Design | Not started |
-| 2 | AI-Assisted Engineering | Not started |
+| 2 | AI-Assisted Engineering | In progress |
 | 3 | Web Platform Foundations | Done |
 | 4 | Rendering and App Architecture | Not started |
 | 5 | State and Real-Time Data | Not started |

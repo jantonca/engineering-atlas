@@ -10,7 +10,7 @@ interface Guide {
 
 export const guides: Guide[] = [
   { number: '01', title: 'Frontend system design', state: 'not-written' },
-  { number: '02', title: 'AI-assisted engineering', state: 'not-written' },
+  { number: '02', title: 'AI-assisted engineering', href: '/ai-assisted-engineering/', state: 'in-progress' },
   { number: '03', title: 'Web platform foundations', href: '/web-platform-foundations/', state: 'done' },
   { number: '04', title: 'Rendering and app architecture', state: 'not-written' },
   { number: '05', title: 'State and real-time data', state: 'not-written' },
