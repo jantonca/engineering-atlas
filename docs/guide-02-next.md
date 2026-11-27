@@ -6,7 +6,15 @@ Working plan for `ai-assisted-engineering.mdx`. Delete this file when the guide 
 
 Built: map, six chapters with scenes, Quick review and Test yourself. Status in `plan.md` and `guides.ts` is In progress. Checked in Chrome at 1440 px and 390 px, light and dark themes, reduced motion, keyboard on the scene controls; no overflow and no console errors. `pnpm check` and `pnpm build` pass. All 57 external links returned 200 on 27 November 2026.
 
-Left before marking Done: a final read-through of the whole page for plain English and facts, as for guide 03. Then delete this file.
+## Next session
+
+1. Final read-through of the whole page for plain English and facts, as for guide 03. Then set guide 02 to Done in `plan.md` and `guides.ts`, and delete this file.
+2. Recheck that the CodeRabbit CLI is still in open beta (the second audit could not confirm it from the cited page).
+3. Recheck guide 03 at phone width after the shared map change (desktop light was checked).
+4. Small: a diff card in chapter 4 shows its focus ring after a mouse click too, because it uses `:focus-within`.
+5. Merge order: guide 03 (`guide-03-web-platform`) is not on `main` yet. The guide 02 pull request is based on it, so guide 03 needs its own pull request to `main` first.
+
+Still waiting for a decision, not part of this guide: the two site issues from the guide 03 handoff (the `LocalNav` popover has no fallback; `sim.css` choices rely on `:has()`).
 
 Scope from `plan.md`: judgement in daily work with coding agents, and helping a team use them safely. Which tasks to give an agent, what context to give it, how to check the result, which permissions to allow, and when not to use one. How models work belongs to guide 15. AI inside a product belongs to guide 16. DORA metrics belong to guide 12, test levels to guide 7, and large migrations with codemods to guide 10. This guide links to those guides and does not explain those ideas again.
 
