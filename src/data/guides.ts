@@ -4,14 +4,14 @@ interface Guide {
   number: string;
   title: string;
   href?: string;
-  state: 'in-progress' | 'not-written';
+  state: 'done' | 'in-progress' | 'not-written';
   optional?: boolean;
 }
 
 export const guides: Guide[] = [
   { number: '01', title: 'Frontend system design', state: 'not-written' },
   { number: '02', title: 'AI-assisted engineering', state: 'not-written' },
-  { number: '03', title: 'Web platform foundations', href: '/web-platform-foundations/', state: 'in-progress' },
+  { number: '03', title: 'Web platform foundations', href: '/web-platform-foundations/', state: 'done' },
   { number: '04', title: 'Rendering and app architecture', state: 'not-written' },
   { number: '05', title: 'State and real-time data', state: 'not-written' },
   { number: '06', title: 'Web performance', state: 'not-written' },
@@ -30,6 +30,7 @@ export const guides: Guide[] = [
 ];
 
 export const stateLabel: Record<Guide['state'], string> = {
+  done: 'Done',
   'in-progress': 'Being written',
   'not-written': 'Not written yet',
 };
