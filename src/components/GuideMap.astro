@@ -1,0 +1,237 @@
+---
+// The page map at the top of a guide: bands in order, each with zones that show a symptom, then its cause.
+// Each guide passes its own zones and the art component that draws them.
+export interface Zone {
+  n: string;
+  symptom: string;
+  cause: string;
+  href?: string;
+  art: string;
+}
+
+export interface Band {
+  name: string;
+  hint: string;
+  zones: Zone[];
+}
+
+interface Props {
+  bands: Band[];
+  art: (props: { art: any; class?: string }) => any;
+}
+
+const { bands, art: Art } = Astro.props;
+---
+
+<figure class="guide-map">
+  <div class="bands" style={`--bands: ${bands.length}`}>
+    {
+      bands.map((band) => (
+        <div class="band">
+          <div class="band-head">
+            <span class="node" aria-hidden="true" />
+            <p class="band-name">{band.name}</p>
+            <p class="band-hint">{band.hint}</p>
+          </div>
+          <ul class="zones">
+            {band.zones.map((z) => (
+              <li>
+                <a class="zone" href={z.href ?? `#qz-${z.n}`}>
+                  <span class="art"><Art art={z.art} /></span>
+                  <span class="z-n">{z.n}</span>
+                  <span class="z-symptom">{z.symptom}</span>
+                  <span class="z-cause">{z.cause}</span>
+                  <span class="z-go">{z.href ? `Chapter ${z.n}` : `No chapter yet. Self-test question ${z.n}`}</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))
+    }
+  </div>
+  <figcaption class="map-caption">
+    Each zone shows a symptom first, then where it starts. Numbers match the chapters below.
+  </figcaption>
+</figure>
+
+<style>
+  .guide-map {
+    --label: var(--diagram-size);
+    margin: 0;
+    font-size: var(--label);
+    line-height: var(--diagram-leading);
+  }
+
+  .bands {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(var(--bands), minmax(0, 1fr));
+    gap: var(--space-5);
+  }
+
+  .bands::before {
+    content: '';
+    position: absolute;
+    left: 8px;
+    right: 0;
+    top: 7px;
+    height: 3px;
+    background: var(--ink);
+  }
+
+  .bands::after {
+    content: '';
+    position: absolute;
+    right: -2px;
+    top: 1px;
+    border-left: 12px solid var(--ink);
+    border-top: 7.5px solid transparent;
+    border-bottom: 7.5px solid transparent;
+  }
+
+  .band {
+    position: relative;
+    display: grid;
+    align-content: start;
+    gap: var(--space-5);
+  }
+
+  .band-head {
+    position: relative;
+    padding-top: 32px;
+  }
+
+  .node {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 17px;
+    height: 17px;
+    border-radius: 50%;
+    background: var(--paper);
+    box-shadow: inset 0 0 0 4px var(--ink);
+  }
+
+  .band-name {
+    font-weight: 800;
+    font-size: var(--text);
+  }
+
+  .band-hint {
+    color: var(--ink-2);
+  }
+
+  .zones {
+    display: grid;
+    gap: var(--space-5);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .zone {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    grid-template-areas:
+      'art art'
+      'n symptom'
+      '. cause'
+      '. go';
+    column-gap: var(--space-2);
+    row-gap: 2px;
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .art {
+    grid-area: art;
+    display: block;
+    margin-bottom: var(--space-3);
+    transition: transform 0.3s cubic-bezier(.3,0,.2,1);
+  }
+
+  .zone:hover .art,
+  .zone:focus-visible .art {
+    transform: translateY(-4px);
+  }
+
+  .z-n {
+    grid-area: n;
+    font-weight: 850;
+    font-variation-settings: 'wdth' 125;
+  }
+
+  .z-symptom {
+    grid-area: symptom;
+    font-weight: 750;
+  }
+
+  .z-cause {
+    grid-area: cause;
+    color: var(--ink-2);
+  }
+
+  .z-go {
+    grid-area: go;
+    margin-top: var(--space-2);
+    color: var(--ink);
+    font-weight: 700;
+  }
+
+  .z-go::after {
+    content: ' ↓';
+  }
+
+  .zone:hover .z-symptom {
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 0.2em;
+  }
+
+  .map-caption {
+    margin-top: var(--space-5);
+    color: var(--ink-2);
+  }
+
+  @media (max-width: 52rem) {
+    .bands {
+      grid-template-columns: 1fr;
+      gap: var(--space-6);
+    }
+
+    .bands::before {
+      left: 7px;
+      right: auto;
+      top: 8px;
+      bottom: 0;
+      width: 3px;
+      height: auto;
+    }
+
+    .bands::after {
+      right: auto;
+      left: 1px;
+      top: auto;
+      bottom: -2px;
+      border-top: 12px solid var(--ink);
+      border-left: 7.5px solid transparent;
+      border-right: 7.5px solid transparent;
+      border-bottom: 0;
+    }
+
+    .band-head {
+      padding: 0 0 0 32px;
+    }
+
+    .zones {
+      padding-left: 32px;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .art {
+      transition: none;
+    }
+  }
+</style>

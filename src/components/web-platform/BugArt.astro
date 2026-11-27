@@ -1,4 +1,6 @@
 ---
+import '../../styles/art.css';
+
 export type Art = 'order' | 'cache' | 'data' | 'main' | 'worker' | 'render' | 'memory' | 'browsers';
 
 interface Props {
@@ -9,7 +11,7 @@ interface Props {
 const { art, class: className } = Astro.props;
 ---
 
-<svg class={`bug-art ${className ?? ''}`} viewBox="0 0 176 72" width="176" height="72" aria-hidden="true">
+<svg class={`guide-art ${className ?? ''}`} viewBox="0 0 176 72" width="176" height="72" aria-hidden="true">
   {art === 'order' && (
     <>
       <circle class="ink" cx="8" cy="20" r="4" />
@@ -87,27 +89,3 @@ const { art, class: className } = Astro.props;
     </>
   )}
 </svg>
-
-<style>
-  .bug-art {
-    overflow: visible;
-  }
-
-  .ink { fill: var(--ink); }
-  .bad { fill: var(--bad); }
-  .good { fill: var(--good); }
-  .stroke { fill: none; stroke: var(--ink); stroke-width: 3; }
-  .thin { stroke: var(--ink-3); stroke-width: 2; }
-  .dash { stroke: var(--ink-3); stroke-width: 3; stroke-dasharray: 6 6; }
-  .frame { fill: none; stroke: var(--ink); stroke-width: 3; }
-  .frame.dashed { stroke: var(--ink-3); stroke-dasharray: 6 5; }
-  .frame.faded { stroke: var(--ink-3); }
-  .bad-frame { stroke: var(--bad); }
-  .track { fill: none; stroke: var(--faint); stroke-width: 8; }
-  .arc { fill: none; stroke-width: 8; }
-  .good-stroke { stroke: var(--good); }
-  .bad-stroke { fill: none; stroke: var(--bad); stroke-width: 3; }
-  .warn-stroke { fill: none; stroke: var(--warn); stroke-width: 3; }
-  .warn-dash { stroke: var(--warn); stroke-width: 3; stroke-dasharray: 4 5; }
-  .bad-line { fill: none; stroke: var(--bad); stroke-width: 3; stroke-linejoin: round; }
-</style>

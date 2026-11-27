@@ -1,0 +1,383 @@
+---
+import '../../styles/sim.css';
+
+// x: how easy the result is to check (0 hard, 1 easy). y: what a mistake costs (0 low, 1 high).
+// `tested` is where the task sits when the repo has good tests. Positions are a teaching judgement.
+interface Task {
+  id: string;
+  name: string;
+  x: number;
+  tested: number;
+  y: number;
+  why: string;
+  whyTested?: string;
+}
+
+const TASKS: Task[] = [
+  {
+    id: 'rename',
+    name: 'Rename a prop in 40 files',
+    x: 0.72,
+    tested: 0.9,
+    y: 0.18,
+    why: 'The type checker finds every place the agent missed, and the diff is easy to read. A mistake is one revert away.',
+    whyTested: 'Types and tests both run on every place it changed. This is the kind of work to hand over.',
+  },
+  {
+    id: 'tests',
+    name: 'Write tests for a date parser',
+    x: 0.66,
+    tested: 0.66,
+    y: 0.28,
+    why: 'You check it by reading each test and asking whether it states a real rule. Existing tests do not help you judge new ones.',
+  },
+  {
+    id: 'upgrade',
+    name: 'Upgrade a library with breaking changes',
+    x: 0.3,
+    tested: 0.74,
+    y: 0.7,
+    why: 'Without tests, the only check is to click through the app. Let the agent list the breaking changes and where they apply, then do the risky parts yourself.',
+    whyTested: 'Good tests make the result checkable, so the same task moves right. Hand it over, then review the diff closely: an upgrade can break things your tests do not cover.',
+  },
+  {
+    id: 'auth',
+    name: 'Change who can see invoices',
+    x: 0.2,
+    tested: 0.36,
+    y: 0.9,
+    why: 'The danger is in cases nobody wrote down, so passing tests prove little. A mistake shows customers each other’s data. Write it yourself; ask the AI to look for cases you missed.',
+    whyTested: 'Tests help a little, but the risk is still in the cases nobody wrote. Write it yourself; ask the AI to look for cases you missed.',
+  },
+  {
+    id: 'prototype',
+    name: 'A throwaway prototype for a design review',
+    x: 0.28,
+    tested: 0.28,
+    y: 0.08,
+    why: 'Nobody can say whether it is “correct”, but nobody ships it either. Let the agent build it fast, and delete it after the review.',
+  },
+  {
+    id: 'flaky',
+    name: 'Fix a test that fails one run in ten',
+    x: 0.14,
+    tested: 0.14,
+    y: 0.34,
+    why: 'A passing run proves nothing, because it often passed before. An agent may add a retry or a longer timeout and hide the cause. Let it collect evidence; you choose the fix.',
+  },
+];
+
+const VERDICT = {
+  'easy-low': 'Hand it over',
+  'easy-high': 'Hand it over, then review closely',
+  'hard-low': 'Try it, and treat it as a draft',
+  'hard-high': 'Do it yourself. Use AI for parts',
+} as const;
+
+const zone = (x: number, y: number) => `${x >= 0.5 ? 'easy' : 'hard'}-${y >= 0.5 ? 'high' : 'low'}` as keyof typeof VERDICT;
+---
+
+<div class="sx tp" data-tp>
+  <div class="tp-side">
+    <fieldset class="sx-ctl">
+      <legend class="sx-label">Pick a task</legend>
+      <div class="tp-tasks">
+        {
+          TASKS.map((t, i) => (
+            <label class="tp-task">
+              <input type="radio" name="tp-task" value={t.id} checked={i === 2} />
+              <span>
+                <span class="tp-n">{i + 1}</span> {t.name}
+              </span>
+            </label>
+          ))
+        }
+      </div>
+    </fieldset>
+    <label class="tp-toggle">
+      <input type="checkbox" data-tested />
+      <span>
+        <strong>The repo has good tests</strong>
+        <span class="sx-hint">Watch which tasks move.</span>
+      </span>
+    </label>
+  </div>
+
+  <figure class="tp-fig">
+    <div class="tp-plot">
+      <span class="tp-q is-hard-high">{VERDICT['hard-high']}</span>
+      <span class="tp-q is-easy-high">{VERDICT['easy-high']}</span>
+      <span class="tp-q is-hard-low">{VERDICT['hard-low']}</span>
+      <span class="tp-q is-easy-low">{VERDICT['easy-low']}</span>
+      {
+        TASKS.map((t, i) => (
+          <span
+            class="tp-dot"
+            data-dot={t.id}
+            style={`--x: ${t.x}; --tx: ${t.tested}; --y: ${t.y}`}
+            aria-hidden="true"
+          >
+            {i + 1}
+          </span>
+        ))
+      }
+    </div>
+    <p class="tp-axis tp-axis-x" aria-hidden="true"><span>Hard to check</span><span>Easy to check</span></p>
+    <p class="tp-axis tp-axis-y" aria-hidden="true"><span>Mistake is cheap</span><span>Mistake is costly</span></p>
+    <figcaption class="visually-hidden">
+      Six tasks on two axes: how easy the result is to check, and what a mistake costs. The chosen task's place and reason are in the text next to the plot.
+    </figcaption>
+  </figure>
+
+  <div class="tp-result" aria-live="polite">
+    {
+      TASKS.map((t, i) => (
+        <div data-for={t.id} hidden>
+          <p class="tp-verdict">
+            <span data-plain>{VERDICT[zone(t.x, t.y)]}</span>
+            <span data-with-tests hidden>{VERDICT[zone(t.tested, t.y)]}</span>
+          </p>
+          <p class="tp-why">
+            <strong>{i + 1}. {t.name}.</strong> <span data-plain>{t.why}</span>
+            <span data-with-tests hidden>{t.whyTested ?? t.why}</span>
+          </p>
+        </div>
+      ))
+    }
+  </div>
+</div>
+
+<script>
+  for (const root of document.querySelectorAll<HTMLElement>('[data-tp]')) {
+    const tested = root.querySelector<HTMLInputElement>('[data-tested]')!;
+    // Browsers can restore form state on reload, so read the inputs, not the markup.
+    const sync = () => {
+      const task = root.querySelector<HTMLInputElement>('[name="tp-task"]:checked')!.value;
+      root.classList.toggle('is-tested', tested.checked);
+      for (const block of root.querySelectorAll<HTMLElement>('[data-for]')) block.hidden = block.dataset.for !== task;
+      for (const dot of root.querySelectorAll<HTMLElement>('[data-dot]')) dot.classList.toggle('is-on', dot.dataset.dot === task);
+      for (const n of root.querySelectorAll<HTMLElement>('[data-plain]')) n.hidden = tested.checked;
+      for (const n of root.querySelectorAll<HTMLElement>('[data-with-tests]')) n.hidden = !tested.checked;
+    };
+    root.addEventListener('change', sync);
+    sync();
+  }
+</script>
+
+<style is:global>
+  .tp {
+    grid-template-columns: minmax(0, 22rem) minmax(0, 1fr);
+    grid-template-areas: 'side plot' 'result plot';
+    grid-template-rows: auto 1fr;
+    gap: var(--space-5) var(--space-6);
+    align-items: start;
+  }
+
+  .tp-side { grid-area: side; display: grid; gap: var(--space-4); }
+  .tp-fig { grid-area: plot; }
+  .tp-result { grid-area: result; }
+
+  .tp-tasks {
+    display: grid;
+    margin-top: var(--space-2);
+  }
+
+  .tp-task {
+    position: relative;
+    cursor: pointer;
+  }
+
+  .tp-task input {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    opacity: 0;
+    cursor: pointer;
+  }
+
+  /* A sibling selector, not :has(), so the choice shows in every browser. */
+  .tp-task > span {
+    display: block;
+    padding: var(--space-2) 0 var(--space-2) var(--space-3);
+    border-left: 3px solid var(--faint);
+    color: var(--ink-2);
+    font-weight: 600;
+  }
+
+  .tp-task input:checked + span {
+    border-left: 6px solid var(--ink);
+    padding-left: calc(var(--space-3) - 3px);
+    color: var(--ink);
+  }
+
+  .tp-task input:focus-visible + span {
+    outline: 3px solid var(--net);
+    outline-offset: 2px;
+  }
+
+  .tp-n {
+    display: inline-block;
+    min-width: 1.25em;
+    font-weight: 850;
+    font-variation-settings: 'wdth' 125;
+  }
+
+  .tp .tp-toggle {
+    display: flex;
+    gap: var(--space-3);
+    align-items: start;
+    cursor: pointer;
+  }
+
+  .tp .tp-toggle input {
+    width: 1.5rem;
+    height: 1.5rem;
+    margin: 0.1rem 0 0;
+    accent-color: var(--ink);
+  }
+
+  .tp .tp-toggle strong {
+    display: block;
+  }
+
+  .tp-fig {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas: 'y plot' '. x';
+    gap: var(--space-2);
+    margin: 0;
+    font-size: var(--label);
+    line-height: var(--diagram-leading);
+  }
+
+  /* --pad keeps the dots out of the quadrant labels at the top and bottom. */
+  .tp-plot {
+    --dot: 2.25rem;
+    --pad: 3rem;
+    grid-area: plot;
+    position: relative;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    aspect-ratio: 4 / 3;
+    max-height: 34rem;
+    border-left: 3px solid var(--ink);
+    border-bottom: 3px solid var(--ink);
+    background:
+      linear-gradient(var(--faint), var(--faint)) center / 2px 100% no-repeat,
+      linear-gradient(var(--faint), var(--faint)) center / 100% 2px no-repeat;
+  }
+
+  .tp-q {
+    padding: var(--space-3);
+    color: var(--ink-2);
+    font-weight: 700;
+  }
+
+  .tp-q.is-easy-high,
+  .tp-q.is-easy-low {
+    text-align: right;
+  }
+
+  .tp-q.is-hard-low,
+  .tp-q.is-easy-low {
+    align-self: end;
+  }
+
+  .tp-dot {
+    position: absolute;
+    left: calc(var(--x) * (100% - var(--dot)));
+    bottom: calc(var(--pad) + var(--y) * (100% - var(--dot) - 2 * var(--pad)));
+    display: grid;
+    place-items: center;
+    width: var(--dot);
+    height: var(--dot);
+    border-radius: 50%;
+    background: var(--paper);
+    box-shadow: inset 0 0 0 3px var(--ink-3);
+    color: var(--ink-2);
+    font-weight: 800;
+    transition: left 0.6s cubic-bezier(.3,0,.2,1), background 0.2s ease, color 0.2s ease;
+  }
+
+  .tp.is-tested .tp-dot {
+    left: calc(var(--tx) * (100% - var(--dot)));
+  }
+
+  .tp-dot.is-on {
+    z-index: 1;
+    background: var(--ink);
+    box-shadow: 0 0 0 4px var(--paper);
+    color: var(--paper);
+  }
+
+  .tp-axis {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-3);
+    margin: 0;
+    color: var(--ink-2);
+  }
+
+  .tp-axis-x {
+    grid-area: x;
+  }
+
+  .tp-axis-y {
+    grid-area: y;
+    /* Turned to read bottom to top, so the first label sits at the bottom of the axis. */
+    writing-mode: vertical-rl;
+    rotate: 180deg;
+    text-align: center;
+  }
+
+  .tp-result {
+    min-height: 12rem;
+  }
+
+  .tp-verdict {
+    margin: 0 0 var(--space-2);
+    font-weight: 800;
+    font-size: clamp(1.375rem, 2.6vw, 1.875rem);
+    line-height: 1.15;
+  }
+
+  .tp-why {
+    margin: 0;
+    color: var(--ink-2);
+    font-size: var(--text);
+    text-wrap: pretty;
+  }
+
+  .tp-why strong {
+    color: var(--ink);
+  }
+
+  @media (max-width: 62rem) {
+    .tp {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-areas: 'side' 'plot' 'result';
+      grid-template-rows: none;
+    }
+  }
+
+  @media (max-width: 40rem) {
+    .tp-plot {
+      --dot: 2rem;
+      --pad: 3.75rem;
+      aspect-ratio: 1 / 1;
+      min-height: 0;
+    }
+
+    .tp-q {
+      padding: var(--space-2);
+      font-size: 0.875rem;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .tp-dot {
+      transition: none;
+    }
+  }
+</style>

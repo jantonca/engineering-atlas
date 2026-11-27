@@ -1,0 +1,167 @@
+---
+// Anthropic's randomised trial (paper v3 and blog, January 2026). Pattern groups are from the blog's summary.
+const LOW = [
+  { name: 'AI delegation', n: 4, how: 'Asked the AI to write the code.' },
+  { name: 'Progressive reliance', n: 4, how: 'Started alone, then handed more and more to the AI.' },
+  { name: 'Iterative AI debugging', n: 4, how: 'Asked the AI to fix or check each error.' },
+];
+
+const HIGH = [
+  { name: 'Generation, then comprehension', n: 2, how: 'Let the AI write code, then asked questions until they understood it.' },
+  { name: 'Hybrid code and explanation', n: 3, how: 'Asked for code together with an explanation.' },
+  { name: 'Conceptual inquiry', n: 7, how: 'Asked only about concepts, then wrote the code themselves.' },
+];
+---
+
+<figure class="sk">
+  <div class="sk-stats">
+    <div class="sk-stat is-bad">
+      <p class="sk-big">4.15</p>
+      <p class="sk-unit">points lower with AI, on a 27-point quiz</p>
+      <p class="sk-text">Measured straight after the task. 26 people in each group. The biggest gap was in debugging questions.</p>
+    </div>
+    <div class="sk-stat">
+      <p class="sk-big">2 min</p>
+      <p class="sk-unit">faster, within chance</p>
+      <p class="sk-text">About 23 against 25 minutes. The study could not tell this gap apart from chance.</p>
+    </div>
+  </div>
+
+  <div class="sk-groups">
+    <p class="sk-head">How people in the AI group used it</p>
+    <div class="sk-cols">
+      <section>
+        <h4 class="sk-col-name is-low">Lower scores <span>average under 40%</span></h4>
+        <ul>
+          {LOW.map((p) => <li><strong>{p.name}</strong> <span class="sk-n">{p.n} people</span> {p.how}</li>)}
+        </ul>
+      </section>
+      <section>
+        <h4 class="sk-col-name is-high">Higher scores <span>average 65% or more</span></h4>
+        <ul>
+          {HIGH.map((p) => <li><strong>{p.name}</strong> <span class="sk-n">{p.n} people</span> {p.how}</li>)}
+        </ul>
+      </section>
+    </div>
+  </div>
+
+  <figcaption class="sk-caption">
+    52 mostly junior engineers learned a new Python library, half with a chat assistant that could write the full solution. The usage groups were observed afterwards and hold 2 to 7 people each; Anthropic says this part does not show cause. Sources: the <a href="https://arxiv.org/html/2601.20245v3">paper</a> and <a href="https://www.anthropic.com/research/AI-assistance-coding-skills">Anthropic's summary</a>, January 2026.
+  </figcaption>
+</figure>
+
+<style>
+  .sk {
+    display: grid;
+    gap: var(--space-5);
+    margin: 0;
+    font-size: var(--diagram-size);
+    line-height: var(--diagram-leading);
+  }
+
+  .sk-stats {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-5);
+  }
+
+  .sk-stat {
+    display: grid;
+    align-content: start;
+    gap: var(--space-1);
+    padding-top: var(--space-3);
+    border-top: 6px solid var(--ink-3);
+  }
+
+  .sk-stat.is-bad {
+    border-top-color: var(--bad);
+  }
+
+  .sk-big {
+    margin: 0;
+    font-weight: 850;
+    font-variation-settings: 'wdth' 125;
+    font-size: clamp(3rem, 7vw, 6rem);
+    line-height: 0.9;
+    letter-spacing: -0.03em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .sk-stat.is-bad .sk-big {
+    color: var(--bad);
+  }
+
+  .sk-unit {
+    margin: 0;
+    font-weight: 800;
+    font-size: clamp(1.25rem, 2.4vw, 1.75rem);
+    line-height: 1.15;
+  }
+
+  .sk-text {
+    margin: var(--space-2) 0 0;
+    max-width: 30rem;
+    color: var(--ink-2);
+    font-size: var(--text-small);
+  }
+
+  .sk-head {
+    margin: 0 0 var(--space-3);
+    color: var(--ink-2);
+    font-size: var(--text-small);
+    font-weight: 650;
+  }
+
+  .sk-cols {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-5);
+  }
+
+  .sk-col-name {
+    margin: 0 0 var(--space-3);
+    padding-left: var(--space-3);
+    font-size: var(--text);
+    font-weight: 800;
+  }
+
+  .sk-col-name span {
+    display: block;
+    color: var(--ink-2);
+    font-size: var(--text-small);
+    font-weight: 500;
+  }
+
+  .sk-col-name.is-low { border-left: 6px solid var(--bad); }
+  .sk-col-name.is-high { border-left: 6px solid var(--good); }
+
+  .sk-cols ul {
+    display: grid;
+    gap: var(--space-3);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .sk-cols strong {
+    display: block;
+  }
+
+  .sk-n {
+    display: block;
+    color: var(--ink-2);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .sk-caption {
+    max-width: 44rem;
+    color: var(--ink-2);
+  }
+
+  @media (max-width: 52rem) {
+    .sk-stats,
+    .sk-cols {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

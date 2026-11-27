@@ -1,0 +1,208 @@
+---
+// METR's 2025 trial and its late-2025 follow-up. Values are change in task time with AI, in percent:
+// negative means faster. `low` and `high` are the 95% confidence interval where METR gives one.
+interface Row {
+  label: string;
+  sub: string;
+  value: number;
+  low?: number;
+  high?: number;
+  kind: 'belief' | 'measured' | 'unreliable';
+}
+
+const EARLY: Row[] = [
+  { label: 'Expected', sub: 'before the tasks', value: -24, kind: 'belief' },
+  { label: 'Felt', sub: 'after the tasks', value: -20, kind: 'belief' },
+  { label: 'Measured', sub: '246 tasks, 16 developers', value: 19, low: 2, high: 39, kind: 'measured' },
+];
+
+const LATE: Row[] = [
+  { label: 'Same developers', sub: '10 from the first study', value: -18, low: -38, high: 9, kind: 'unreliable' },
+  { label: 'New developers', sub: '47 people', value: -4, low: -15, high: 9, kind: 'unreliable' },
+];
+
+const MIN = -45;
+const MAX = 45;
+const at = (v: number) => ((v - MIN) / (MAX - MIN)) * 100;
+const pct = (v: number) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v)}%`;
+const TICKS = [-40, -20, 0, 20, 40];
+---
+
+<figure class="tt">
+  {
+    [
+      { title: 'Early 2025: what developers believed, and what happened', rows: EARLY },
+      { title: 'Late 2025 follow-up: METR calls these estimates unreliable', rows: LATE },
+    ].map((group) => (
+      <div class="tt-group">
+        <p class="tt-title">{group.title}</p>
+        <ol class="tt-rows">
+          {group.rows.map((r) => (
+            <li class={`tt-row is-${r.kind}`}>
+              <p class="tt-label">
+                <strong>
+                  {r.label} <span class="tt-num">{pct(r.value)}</span>
+                </strong>
+                {r.sub}
+                {r.low !== undefined && <span class="tt-range">95% range {pct(r.low)} to {pct(r.high!)}</span>}
+              </p>
+              <div class="tt-track">
+                <span class="tt-zero" style={`left: ${at(0)}%`} aria-hidden="true" />
+                {r.low !== undefined && (
+                  <span class="tt-ci" style={`left: ${at(r.low)}%; width: ${at(r.high!) - at(r.low)}%`} aria-hidden="true" />
+                )}
+                <span
+                  class="tt-bar"
+                  style={`left: ${at(Math.min(0, r.value))}%; width: ${Math.abs(at(r.value) - at(0))}%`}
+                  aria-hidden="true"
+                />
+              </div>
+            </li>
+          ))}
+        </ol>
+      </div>
+    ))
+  }
+  <div class="tt-axis" aria-hidden="true">
+    {TICKS.map((t) => <span style={`left: ${at(t)}%`}>{pct(t)}</span>)}
+  </div>
+  <p class="tt-axis-name" aria-hidden="true"><span>← faster with AI</span><span>slower with AI →</span></p>
+  <figcaption class="tt-caption">
+    Change in task time with AI allowed, for experienced developers working in their own open-source repositories. Brackets show the 95% range: the values the data cannot rule out. In the follow-up, developers who did not want to work without AI stayed away or held tasks back, so METR does not trust its own numbers. Sources: <a href="https://metr.org/blog/2025-07-10-early-2025-ai-experienced-os-dev-study/">METR, July 2025</a> and <a href="https://metr.org/blog/2026-02-24-uplift-update/">METR, February 2026</a>.
+  </figcaption>
+</figure>
+
+<style>
+  .tt {
+    --label: 16rem;
+    display: grid;
+    gap: var(--space-4);
+    margin: 0;
+    font-size: var(--diagram-size);
+    line-height: var(--diagram-leading);
+  }
+
+  .tt-title {
+    margin: 0 0 var(--space-2);
+    color: var(--ink-2);
+    font-size: var(--text-small);
+    font-weight: 650;
+  }
+
+  .tt-rows {
+    display: grid;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .tt-row {
+    display: grid;
+    grid-template-columns: var(--label) minmax(0, 1fr);
+    align-items: center;
+    min-height: 4rem;
+    padding-block: var(--space-2);
+    border-bottom: 2px solid var(--faint);
+  }
+
+  .tt-label {
+    margin: 0;
+    padding-right: var(--space-3);
+    color: var(--ink-2);
+  }
+
+  .tt-label strong {
+    display: block;
+    color: var(--ink);
+  }
+
+  .tt-track {
+    position: relative;
+    height: 3.25rem;
+  }
+
+  .tt-zero {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    border-left: 2px solid var(--ink);
+  }
+
+  .tt-bar {
+    position: absolute;
+    top: 50%;
+    height: 16px;
+    margin-top: -8px;
+  }
+
+  .is-belief .tt-bar {
+    box-shadow: inset 0 0 0 3px var(--ink-3);
+    background: repeating-linear-gradient(-45deg, var(--faint) 0 3px, transparent 3px 7px);
+  }
+
+  .is-measured .tt-bar { background: var(--bad); }
+  .is-unreliable .tt-bar { background: var(--ink-3); }
+
+  .tt-ci {
+    position: absolute;
+    top: 50%;
+    height: 22px;
+    margin-top: -11px;
+    border-inline: 3px solid var(--ink-2);
+    background: linear-gradient(var(--ink-2), var(--ink-2)) center / 100% 2px no-repeat;
+  }
+
+  .tt-num {
+    margin-left: 0.25em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .is-measured .tt-num { color: var(--bad); }
+
+  .tt-range {
+    display: block;
+    color: var(--ink-3);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .tt-axis,
+  .tt-axis-name {
+    position: relative;
+    margin: calc(var(--space-4) * -1 + var(--space-1)) 0 0 var(--label);
+    color: var(--ink-3);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .tt-axis {
+    height: 1.4em;
+  }
+
+  .tt-axis span {
+    position: absolute;
+    transform: translateX(-50%);
+  }
+
+  .tt-axis-name {
+    display: flex;
+    justify-content: space-between;
+    margin-top: calc(var(--space-3) * -1);
+    color: var(--ink-2);
+    font-weight: 700;
+  }
+
+  .tt-caption {
+    max-width: 44rem;
+    color: var(--ink-2);
+  }
+
+  @media (max-width: 52rem) {
+    .tt {
+      --label: 0rem;
+    }
+
+    .tt-row {
+      grid-template-columns: 1fr;
+      padding-top: var(--space-2);
+    }
+  }
+</style>

@@ -1,9 +1,7 @@
 ---
-import BugArt, { type Art } from './web-platform/BugArt.astro';
-
+// Each guide passes its own drawing in the `art` slot.
 interface Props {
   n: string;
-  art: Art;
   question: string;
   scenario: string;
   options: string[];
@@ -15,14 +13,14 @@ interface Props {
   href?: string;
 }
 
-const { n, art, question, scenario, options, correct, why, myth, points, evidence, href } = Astro.props;
+const { n, question, scenario, options, correct, why, myth, points, evidence, href } = Astro.props;
 const letters = 'ABCD';
 ---
 
 <li class="qz-item" data-qz-item data-n={n} data-correct={correct} aria-labelledby={`qz-${n}`}>
   <div class="qz-side" aria-hidden="true">
     <span class="qz-n">{n}</span>
-    <BugArt art={art} />
+    <slot name="art" />
   </div>
 
   <div class="qz-main">
