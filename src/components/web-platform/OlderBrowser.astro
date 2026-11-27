@@ -1,0 +1,254 @@
+---
+import '../../styles/sim.css';
+---
+
+<div class="sx bo" data-bo data-browser="current">
+  <fieldset class="sx-ctl">
+    <legend class="sx-label">What does an older browser do?</legend>
+    <div class="sx-choices">
+      <label class="sx-choice">
+        <input type="radio" name="bo-browser" value="current" checked />
+        <span class="sx-choice-main">Current browser</span>
+        <span class="sx-choice-sub">has <code>:has()</code> and popover</span>
+      </label>
+      <label class="sx-choice">
+        <input type="radio" name="bo-browser" value="old" />
+        <span class="sx-choice-main">Firefox 120</span>
+        <span class="sx-choice-sub">Nov 2023: has neither</span>
+      </label>
+      <label class="sx-choice">
+        <input type="radio" name="bo-browser" value="fix" />
+        <span class="sx-choice-main">Firefox 120 + fallback</span>
+        <span class="sx-choice-sub">a small script for popover</span>
+      </label>
+    </div>
+  </fieldset>
+
+  <figure class="bo-demo">
+    <div class="sx-screen bo-screen">
+      <p class="bo-screen-title">Choose a plan</p>
+      <div class="bo-plans" role="radiogroup" aria-label="Plan">
+        <label class="bo-plan"><input type="radio" name="bo-plan" value="month" /> Monthly <span>€9</span></label>
+        <label class="bo-plan"><input type="radio" name="bo-plan" value="year" checked /> Yearly <span>€90</span></label>
+      </div>
+      <div class="bo-help">
+        <button class="bo-help-btn" type="button" aria-expanded="true" data-bo-help>What is included?</button>
+        <p class="bo-bubble" data-bo-bubble>All features. Yearly saves two months.</p>
+      </div>
+      <p class="bo-flow">Pay now</p>
+    </div>
+
+    <ol class="bo-notes" aria-live="polite">
+      <li data-tone="good">
+        <p class="bo-note-head"><code>.plan:has(input:checked)</code></p>
+        <p data-for="current">The whole card of the chosen plan is highlighted.</p>
+        <p data-for="old fix"><strong><span aria-hidden="true">✓</span> Still works.</strong> The browser skips the rule with the selector it does not know. The radio button still shows the choice. Only the highlight is missing, so no fallback code is needed.</p>
+      </li>
+      <li data-tone="bad">
+        <p class="bo-note-head"><code>&lt;p popover&gt;</code></p>
+        <p data-for="current">The help opens on top of the page, over the content below it.</p>
+        <p data-for="old"><strong><span aria-hidden="true">✗</span> Broken.</strong> The browser ignores the popover attribute. The help text sits in the page all the time, and the button does nothing.</p>
+        <p data-for="fix"><strong><span aria-hidden="true">✓</span> Works.</strong> A feature check finds no popover support, so a small script shows and hides the text in the page instead. Not on top, but the task works.</p>
+      </li>
+    </ol>
+    <figcaption class="visually-hidden">
+      A plan picker in three browsers. The highlight uses :has(), and the help text uses popover. The notes beside it say what works in each browser.
+    </figcaption>
+  </figure>
+</div>
+
+<script>
+  for (const root of document.querySelectorAll<HTMLElement>('[data-bo]')) {
+    const help = root.querySelector<HTMLButtonElement>('[data-bo-help]')!;
+    let open = true;
+
+    // Browsers can restore checked radios on reload, so start from the input, not the markup.
+    const sync = () => {
+      root.dataset.browser = root.querySelector<HTMLInputElement>('[name="bo-browser"]:checked')!.value;
+    };
+
+    // The page cannot switch real features off, so the older browser is drawn with styles.
+    const draw = () => {
+      const ignored = root.dataset.browser === 'old';
+      root.querySelector('[data-bo-bubble]')!.toggleAttribute('hidden', !ignored && !open);
+      if (ignored) help.removeAttribute('aria-expanded');
+      else help.setAttribute('aria-expanded', String(open));
+    };
+
+    root.addEventListener('change', () => {
+      sync();
+      draw();
+    });
+
+    help.addEventListener('click', () => {
+      // In the older browser without a fallback, the button does nothing: that is the lesson.
+      if (root.dataset.browser === 'old') return;
+      open = !open;
+      draw();
+    });
+
+    sync();
+    draw();
+  }
+</script>
+
+<style is:global>
+  /* Sits under the timeline scene in the same chapter. */
+  .bo {
+    margin-top: var(--space-6);
+  }
+
+  /* Show only the text for the chosen browser. */
+  .bo [data-for] {
+    display: none;
+  }
+
+  .bo[data-browser='current'] [data-for~='current'],
+  .bo[data-browser='old'] [data-for~='old'],
+  .bo[data-browser='fix'] [data-for~='fix'] {
+    display: revert;
+  }
+
+  .bo-demo {
+    display: grid;
+    grid-template-columns: minmax(0, 22rem) minmax(0, 1fr);
+    gap: var(--space-5);
+    align-items: start;
+    font-size: var(--label);
+    line-height: var(--diagram-leading);
+  }
+
+  .bo-screen-title {
+    font-weight: 800;
+    font-size: var(--text);
+  }
+
+  .bo-plans {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-2);
+  }
+
+  .bo-plan {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    border: 2px solid var(--faint);
+    border-radius: 8px;
+    cursor: pointer;
+  }
+
+  .bo-plan span {
+    margin-left: auto;
+    color: var(--ink-2);
+  }
+
+  .bo-plan input {
+    accent-color: var(--ink);
+  }
+
+  .bo[data-browser='current'] .bo-plan:has(input:checked) {
+    border-color: var(--good);
+    background: color-mix(in srgb, var(--good) 12%, var(--paper));
+  }
+
+  .bo-help {
+    position: relative;
+    display: grid;
+    justify-items: start;
+    gap: var(--space-2);
+  }
+
+  .bo-help-btn {
+    padding: 4px 12px;
+    border: 2px solid var(--ink);
+    border-radius: 16px;
+    background: none;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .bo[data-browser='old'] .bo-help-btn {
+    cursor: not-allowed;
+    border-style: dashed;
+  }
+
+  .bo-bubble {
+    max-width: 18rem;
+    padding: var(--space-2) var(--space-3);
+    border-radius: 8px;
+  }
+
+  /* On top: drawn over the content below, as the top layer would be. */
+  .bo[data-browser='current'] .bo-bubble {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    z-index: 2;
+    background: var(--ink);
+    color: var(--paper);
+    box-shadow: 0 8px 24px rgb(0 0 0 / 0.25);
+  }
+
+  .bo[data-browser='old'] .bo-bubble {
+    padding: 0;
+    color: var(--ink-2);
+  }
+
+  .bo[data-browser='fix'] .bo-bubble {
+    background: var(--faint);
+  }
+
+  .bo-flow {
+    width: fit-content;
+    padding: var(--space-2) var(--space-4);
+    border-radius: 20px;
+    background: var(--ink);
+    color: var(--paper);
+    font-weight: 700;
+  }
+
+  .bo-notes {
+    display: grid;
+    max-width: 34rem;
+    gap: var(--space-4);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .bo-notes li {
+    display: grid;
+    gap: var(--space-1);
+    padding-left: var(--space-3);
+    border-left: 4px solid var(--ink-3);
+  }
+
+  .bo[data-browser='old'] .bo-notes li[data-tone='bad'] {
+    border-color: var(--bad);
+  }
+
+  .bo[data-browser='old'] .bo-notes li[data-tone='bad'] strong {
+    color: var(--bad);
+  }
+
+  .bo:not([data-browser='current']) .bo-notes li[data-tone='good'],
+  .bo[data-browser='fix'] .bo-notes li[data-tone='bad'] {
+    border-color: var(--good);
+  }
+
+  .bo-notes strong {
+    color: var(--good);
+  }
+
+  .bo-note-head {
+    font-weight: 700;
+  }
+
+  @media (max-width: 62rem) {
+    .bo-demo {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

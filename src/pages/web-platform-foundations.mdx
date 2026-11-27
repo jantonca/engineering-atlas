@@ -13,6 +13,8 @@ nav:
   - { id: http-caching, n: '5', label: HTTP caching }
   - { id: memory-leaks, n: '6', label: Memory leaks }
   - { id: runtime-validation, n: '7', label: API data }
+  - { id: browser-support, n: '8', label: Browsers }
+  - { id: review, label: Quick review }
   - { id: quiz, label: Test yourself }
 ---
 
@@ -25,12 +27,15 @@ import RaceSim from '../components/web-platform/RaceSim.astro';
 import CachingSimulator from '../components/web-platform/CachingSimulator.astro';
 import MemorySim from '../components/web-platform/MemorySim.astro';
 import DataSim from '../components/web-platform/DataSim.astro';
+import BrowserSupport from '../components/web-platform/BrowserSupport.astro';
+import OlderBrowser from '../components/web-platform/OlderBrowser.astro';
+import Review from '../components/Review.astro';
 import Quiz from '../components/Quiz.astro';
 import QuizItem from '../components/QuizItem.astro';
 
 <section id="map" class="map-section" aria-labelledby="map-title">
   <h2 id="map-title">Where frontend bugs start</h2>
-  <p>Eight places, from the network to the screen. Each one is a chapter. Read the symptom first, then the cause.</p>
+  <p>Eight places, from the network to the screen. Each one is a chapter. Read the symptom first, then the cause. Short on time? The [quick review](#review) has one line for each chapter, the key terms, the trade-offs and the tools.</p>
   <BugMap />
 </section>
 
@@ -280,15 +285,7 @@ import QuizItem from '../components/QuizItem.astro';
 
     Either way, decide what the page does with bad data. Show a message and a way to retry. Or show the parts you can trust, with a default for the rest. Always send the error to your error reports. The error names the field, so you can see which API change broke the page.
 
-    ### Zod or Valibot
-
-    Both check data while the page runs and give you the type for free. They differ in how you write the schema and in how much code they add to the page.
-
-    Zod has far more downloads. In the week of 18 to 24 November 2026, npm counted [467.6 million downloads for Zod and 35.7 million for Valibot](https://api.npmjs.org/downloads/point/2026-11-18:2026-11-24/zod,valibot), about 13 times as many. npm counts each time it serves the package file, for example to a build server. An install from a local cache adds nothing. So these numbers compare the two packages, not how many teams use them. Zod uses chained methods, such as `z.string().min(1)`. The current version is 4.6.7. Zod 4 also has Zod Mini, the same checks written as separate functions. A bundler can then remove the functions you do not use. Zod's own docs suggest regular Zod unless the bundle size really matters.
-
-    Valibot uses separate functions from the start, such as `v.pipe(v.string(), v.minLength(1))`. The current version is 1.5.0. Its comparison page says a simple login form needs 1.37 kB with Valibot and 17.7 kB with Zod. These are Valibot's numbers for one example. Measure your own bundle before you choose for size.
-
-    You do not always have to choose. Standard Schema is a shared interface that Zod, Valibot, ArkType and many other libraries implement. Tools such as tRPC, TanStack Form and React Hook Form accept any schema that implements it.
+    Zod and Valibot do the same job in different styles. [Current tools](#tools) compares them.
 
     ### What a schema cannot do
 
@@ -305,6 +302,214 @@ import QuizItem from '../components/QuizItem.astro';
     Sources, checked 26 November 2026. The Zod and Valibot messages were checked by running Zod 4.6.7 and Valibot 1.5.0, and type erasure with TypeScript 7.0.2: [TypeScript handbook, Type assertions](https://www.typescriptlang.org/docs/handbook/2/everyday-types.html#type-assertions), [TypeScript handbook, Erased types](https://www.typescriptlang.org/docs/handbook/2/basic-types.html#erased-types), [MDN, Response.json()](https://developer.mozilla.org/en-US/docs/Web/API/Response/json), [Zod, Basic usage](https://zod.dev/basics), [Zod, Objects](https://zod.dev/api#objects), [Zod Mini](https://zod.dev/packages/mini), [Valibot, Introduction](https://valibot.dev/guides/introduction/), [Valibot, Parse data](https://valibot.dev/guides/parse-data/), [Valibot, Infer types](https://valibot.dev/guides/infer-types/), [Valibot, Comparison](https://valibot.dev/guides/comparison/), [Standard Schema](https://standardschema.dev/schema), [npm, zod](https://www.npmjs.com/package/zod), [npm, valibot](https://www.npmjs.com/package/valibot), [npm download counts, 18 to 24 November 2026](https://api.npmjs.org/downloads/point/2026-11-18:2026-11-24/zod,valibot), [Zod, Refinements](https://zod.dev/api#refinements), [npm blog, How npm download counts work (2014)](https://blog.npmjs.org/post/92574016600/numeric-precision-matters-how-npm-download-counts-work.html).
   </Fragment>
 </Chapter>
+
+<Chapter
+  id="browser-support"
+  n="8"
+  topic="Browser support"
+  question="How do you decide which browsers to support, and what happens in older ones?"
+  title="Works everywhere, better where it can."
+>
+  <Fragment slot="answer">
+    Start with your users, not with a list of features. Write the target down once, so every tool uses the same one. Use a feature directly only if every browser in the target has it. For the rest, make sure the core task still works without it.
+  </Fragment>
+
+  <BrowserSupport />
+
+  <OlderBrowser />
+
+  <Fragment slot="after">
+    ### Decide with your own users
+
+    Baseline describes browsers, not your users. In December 2024, a web.dev case study measured real visitors on three sites. Features from Baseline 2024 worked for 34%, 59% and 39% of them. Widely available features worked for 95% to 100%. So check your own analytics before you choose a target, especially for key tasks such as checkout. Supporting a browser means that its core tasks work. It does not mean that the page looks the same everywhere.
+
+    ### Write the target once
+
+    browserslist keeps the target in one place, in `package.json` or a `.browserslistrc` file. Autoprefixer and Babel read it by default, and Lightning CSS can be pointed at it, so they all prepare the code for the same browsers. Since version 4.26, it accepts Baseline queries such as `baseline widely available` or `baseline 2022`. Its `defaults` query works differently: it picks browsers by usage share from Can I Use data, `> 0.5%, last 2 versions, Firefox ESR, not dead`.
+
+    ### What an older browser does
+
+    A browser skips what it does not understand. In CSS, it drops a declaration with an unknown property or value. It drops a whole rule if the selector is unknown, which is what happens to the `:has()` rule in the scene. Firefox 120, from November 2023, is old enough to lack `:has()` and popover, and still inside a Baseline 2022 target. So the effect of a missing feature depends on its job:
+
+    - **An extra**, such as a highlight or `text-wrap: balance`. The page loses some polish and still works. No fallback code is needed.
+    - **A layout**, such as `@container`. Write a simple layout first, then add the new one on top, or put it inside `@supports`. The older browser keeps the simple layout.
+    - **A behaviour**, such as `popover`. Without it, a control does nothing. It needs a small script, or a polyfill that loads only when the feature is missing.
+    - **The foundation**, such as `@layer`. Layers decide which rules win. A browser without them skips every layer block and all the rules inside it. If some browsers in your target lack layers, the styles the page needs must not live inside them.
+
+    Chrome's Modern Web Guidance uses the same four kinds of fallback: none, `@supports`, a small script, or a polyfill loaded only when needed.
+
+    ### Check the feature, not the browser
+
+    In CSS, `@supports` tests one property or selector, for example `@supports selector(:has(a))` or `@supports (anchor-name: --tip)`. In JavaScript, test the API itself. MDN checks for popover with `Object.hasOwn(HTMLElement.prototype, 'popover')`. A check answers only the question you ask. `anchor-name` passes in Firefox 147, but one part of anchor positioning is still missing there. Test the part your page uses.
+
+    ### Semantic HTML is the base layer
+
+    Native elements bring their behaviour with them. A `<button>` works with a keyboard and a screen reader in every browser. A `<form>` with a `<label>` for each field and a submit button sends its data even when your JavaScript fails. Build the core task with these elements, then add newer features on top. This is progressive enhancement.
+
+    Logical properties belong in the base layer too. `margin-inline-start` means the side where a line starts, not the left side. In a right-to-left language such as Arabic, `dir="rtl"` moves it to the right with no extra CSS. Logical properties have been Widely available since March 2024.
+
+    ### A simplified model
+
+    The dates come from the web-features data behind Baseline, version 3.48.0. A Baseline year target includes every browser version that supports all the features that were Newly available at the end of that year. For 2022, that goes back to Safari 16 and Firefox 108. The chart is fixed at 27 November 2026; in reality the Widely available line moves forward every day. Baseline rates whole features. The basic `popover` attribute became Widely available on 16 October 2026, but the feature as a whole is Newly available until iOS Safari 18.3 is 30 months old. Anchor positioning counts as Limited because Firefox lacks two values of `position-visibility`. Its main properties, such as `anchor-name`, have worked in all core browsers since January 2026. The scene is drawn, not live: a page cannot switch features off in your browser.
+
+    Test yourself with [question 8](#qz-8): it gives you a real case to apply this to.
+
+    Sources, checked 27 November 2026: [web.dev, Baseline](https://web.dev/baseline), [MDN, Baseline compatibility](https://developer.mozilla.org/en-US/docs/Glossary/Baseline/Compatibility), [web-features 3.48.0](https://www.npmjs.com/package/web-features) via [webstatus.dev](https://webstatus.dev/features/anchor-positioning), [web.dev, Making Baseline actionable with real user data (2025)](https://web.dev/case-studies/rumvision), [browserslist, queries](https://github.com/browserslist/browserslist#queries), [browserslist changelog](https://github.com/browserslist/browserslist/blob/main/CHANGELOG.md), [MDN, CSS error handling](https://developer.mozilla.org/en-US/docs/Web/CSS/Guides/Syntax/Error_handling), [MDN, @layer](https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/At-rules/@layer), [MDN, Using the Popover API](https://developer.mozilla.org/en-US/docs/Web/API/Popover_API/Using), [Chrome for Developers, Cross-browser by default (2026)](https://developer.chrome.com/blog/cross-browser-by-default), [MDN, Progressive enhancement](https://developer.mozilla.org/en-US/docs/Glossary/Progressive_Enhancement), [MDN, CSS logical properties](https://developer.mozilla.org/en-US/docs/Web/CSS/Guides/Logical_properties_and_values).
+  </Fragment>
+</Chapter>
+
+<Review id="review" title="The whole guide on one page.">
+  <Fragment slot="intro">
+    Read this before an interview or a design review. Each line links to the chapter that explains it.
+  </Fragment>
+
+  ### Summary
+
+  <ol class="rv-summary">
+    <li><span>The browser builds the DOM and the CSSOM, lays out the boxes, paints and composites. A later change runs only the steps it needs. [HTML to pixels](#render-pipeline)</span></li>
+    <li><span>The main thread runs one task at a time, so a tap waits behind a long task. Split the work, or move it. [Event loop](#event-loop)</span></li>
+    <li><span>Move heavy work that does not need the DOM to a worker, and send back only a small result. [Web workers](#web-workers)</span></li>
+    <li><span>Responses arrive in any order. Apply a response only if it belongs to the latest request; cancel old requests to save work. [Out of order](#out-of-order)</span></li>
+    <li><span>A fresh copy is used without asking the server. A stale copy is checked with the server first, usually with its ETag. [HTTP caching](#http-caching)</span></li>
+    <li><span>Memory stays while anything can reach it. Stop every timer, listener and subscription you start. [Memory leaks](#memory-leaks)</span></li>
+    <li><span>Types are removed at build time. Check outside data with a schema where it enters the app. [API data](#runtime-validation)</span></li>
+    <li><span>Choose a browser target from your users' data. The core task works everywhere; newer features add to it. [Browsers](#browser-support)</span></li>
+  </ol>
+
+  ### Key terms
+
+  <div class="rv-terms">
+    <div>
+      <h4>[1 · HTML to pixels](#render-pipeline)</h4>
+      <dl>
+        <dt>DOM and CSSOM</dt><dd>The trees the browser builds from the HTML and from the CSS.</dd>
+        <dt>Layout</dt><dd>Computing the size and position of every box.</dd>
+        <dt>Paint and composite</dt><dd>Drawing pixels into layers, then putting the layers on screen.</dd>
+        <dt>Forced layout</dt><dd>A script reads a size after a change, so layout runs at once, inside the script.</dd>
+        <dt>Layout shift and CLS</dt><dd>Visible content moves when the user does not expect it. CLS scores the worst burst of such shifts in a visit.</dd>
+      </dl>
+    </div>
+    <div>
+      <h4>[2 · Event loop](#event-loop)</h4>
+      <dl>
+        <dt>Main thread</dt><dd>The one thread that runs your page's JavaScript and updates the page.</dd>
+        <dt>Task and long task</dt><dd>One piece of work. A long task runs for more than 50 ms.</dd>
+        <dt>Yielding</dt><dd>Ending a task early, so the browser can handle input in between.</dd>
+        <dt>INP</dt><dd>Interaction to Next Paint: about the slowest interaction in a visit, from input to the next screen update. 200 ms or less is good.</dd>
+      </dl>
+    </div>
+    <div>
+      <h4>[3 · Web workers](#web-workers)</h4>
+      <dl>
+        <dt>Web worker</dt><dd>JavaScript on a background thread. It cannot touch the DOM.</dd>
+        <dt>Structured clone</dt><dd>How a message is copied between the page and a worker.</dd>
+        <dt>Transfer</dt><dd>Moving an <code>ArrayBuffer</code> to the worker without a copy.</dd>
+        <dt>Service worker</dt><dd>A worker that sits between the page and the network, like a proxy.</dd>
+      </dl>
+    </div>
+    <div>
+      <h4>[4 · Out of order](#out-of-order)</h4>
+      <dl>
+        <dt>Race condition</dt><dd>The result depends on the order in which responses arrive.</dd>
+        <dt>Request number</dt><dd>A counter that tells the page which response is the latest.</dd>
+        <dt>AbortController</dt><dd>Cancels a <code>fetch()</code>. The cancelled call fails with an <code>AbortError</code>.</dd>
+      </dl>
+    </div>
+    <div>
+      <h4>[5 · HTTP caching](#http-caching)</h4>
+      <dl>
+        <dt>Fresh and stale</dt><dd>A fresh copy is used without asking. A stale copy is checked first.</dd>
+        <dt><code>max-age</code></dt><dd>How many seconds a copy stays fresh.</dd>
+        <dt>ETag and 304</dt><dd>A version label for a file. 304 means "not changed, keep your copy".</dd>
+        <dt><code>no-cache</code> and <code>no-store</code></dt><dd>Check before each use, or do not store at all.</dd>
+      </dl>
+    </div>
+    <div>
+      <h4>[6 · Memory leaks](#memory-leaks)</h4>
+      <dl>
+        <dt>Garbage collector</dt><dd>Frees memory that nothing can reach.</dd>
+        <dt>Root</dt><dd>Something the page always keeps, such as <code>window</code> or an active timer.</dd>
+        <dt>Closure</dt><dd>A function keeps the variables it uses alive.</dd>
+        <dt>Detached element</dt><dd>Removed from the page, but still held by code.</dd>
+        <dt>Heap snapshot</dt><dd>A list of everything in memory, to compare before and after an action.</dd>
+      </dl>
+    </div>
+    <div>
+      <h4>[7 · API data](#runtime-validation)</h4>
+      <dl>
+        <dt>Type erasure</dt><dd>The compiler removes all types, so none exist while the page runs.</dd>
+        <dt>Type assertion</dt><dd><code>as Order</code>: tells the compiler to trust you. Nothing is checked.</dd>
+        <dt>Schema</dt><dd>A description of the data that runs as code and checks values.</dd>
+        <dt>Edge of the app</dt><dd>Any place where outside data enters: APIs, storage, URLs, messages, model output.</dd>
+      </dl>
+    </div>
+    <div>
+      <h4>[8 · Browsers](#browser-support)</h4>
+      <dl>
+        <dt>Core browsers</dt><dd>Chrome, Edge, Firefox and Safari, on desktop and mobile.</dd>
+        <dt>Newly and Widely available</dt><dd>In every core browser; and 30 months after that.</dd>
+        <dt>Limited availability</dt><dd>Missing from at least one core browser.</dd>
+        <dt>Progressive enhancement</dt><dd>The core works everywhere. Newer features add to it.</dd>
+        <dt>Feature detection</dt><dd>Testing for the feature itself, with <code>@supports</code> or a check in JavaScript.</dd>
+      </dl>
+    </div>
+  </div>
+
+  ### Trade-offs
+
+  <div class="rv-table" style="--c2: 'Choose the first when'; --c3: 'Choose the second when'">
+
+  | Choice | Choose the first when | Choose the second when |
+  |---|---|---|
+  | `defer` or `async` | The script needs the parsed page, or another script, in order. | The script stands alone, such as analytics. |
+  | Small pieces or a [worker](#web-workers) | The work must change the DOM. | The work is heavy, has its own data and returns a small result. |
+  | Ignore or [cancel](#out-of-order) old responses | The work is not a `fetch()`, or you cannot cancel it. | You also want to stop downloading data nobody needs. Still check that the response is the latest. |
+  | Long `max-age` or [`no-cache`](#http-caching) | The file name changes with each version, such as `app.3f9a.js`. | The name stays the same, such as the HTML page. |
+  | A size limit or a [`WeakMap`](#memory-leaks) | The keys are strings or numbers, such as ticket IDs. | The keys are objects, such as DOM elements. |
+  | A type only or a [schema](#runtime-validation) | The data comes from your own code. | The data comes from outside the app. |
+  | Default object or `z.strictObject()` | A new field from the API should not break the page. | You must know about every new field. |
+  | Use directly or a [fallback](#browser-support) | Every browser in your target has the feature. | Some do, and the core task depends on it. |
+
+  </div>
+
+  ### Current tools <span id="tools"></span>
+
+  Two labels for each tool. **Use** says how widely teams use it: Standard, Growing or New. **Maturity** says how settled it is: Stable, Experimental, Draft or Retired. The labels are a judgement from the sources below, checked 27 November 2026.
+
+  <div class="rv-table" style="--c2: 'What it is for'; --c3: 'Instead, or when not to use it'">
+
+  | Tool | What it is for | Instead, or when not to use it |
+  |---|---|---|
+  | MDN Web Docs <span class="rv-label">Use: Standard · Maturity: Stable</span> | The reference for every web feature, with its Baseline status. | The specifications, when you need the exact rule. |
+  | Baseline <span class="rv-label">Use: Growing · Maturity: Stable</span> | One status per feature: Limited, Newly or Widely available. Shown on MDN, Can I Use and in VS Code. | It describes browsers, not your users. Check your analytics. |
+  | Can I Use <span class="rv-label">Use: Standard · Maturity: Stable</span> | Support for each browser version, with usage share. | Baseline is faster for a yes-or-no answer. |
+  | browserslist <span class="rv-label">Use: Standard · Maturity: Stable</span> | One browser target for every build tool. Version 4.29.6. Baseline queries since 4.26. | Not needed if no tool changes your code for older browsers. |
+  | Chrome DevTools Memory panel <span class="rv-label">Use: Standard · Maturity: Stable</span> | Heap snapshots, detached elements and the chain that keeps them. | Start with the Performance panel to see whether memory grows at all. |
+  | Web workers <span class="rv-label">Use: not measured · Maturity: Stable</span> | Heavy work off the main thread. Widely available since 2018. | Small pieces on the main thread, when the work needs the DOM or is small. |
+  | Service workers <span class="rv-label">Use: Growing · Maturity: Stable</span> | Offline pages and custom caching. On 18.9% of sites in 2025, up from about 1.7% in 2022; much of the rise comes from Google Tag Manager. | The HTTP cache alone, for ordinary caching. |
+  | HTTP caching headers <span class="rv-label">Use: Standard · Maturity: Stable</span> | `Cache-Control` and `ETag` decide when a copy is reused. RFC 9111. | No alternative: a response without a policy lets the browser guess one. |
+  | TypeScript <span class="rv-label">Use: Standard · Maturity: Stable</span> | Checks your code before it runs. Version 7.0.2. | It cannot check data while the page runs. Add a schema at the edges. |
+  | Zod <span class="rv-label">Use: Standard · Maturity: Stable</span> | Schema checks with chained methods, such as `z.string().min(1)`. Version 4.6.7. Zod Mini has the same checks as separate functions, for a smaller bundle. `z.toJSONSchema()` turns a schema into JSON Schema. | Valibot, when bundle size matters most. Zod's docs suggest regular Zod unless it really does. |
+  | Valibot <span class="rv-label">Use: Growing · Maturity: Stable</span> | The same job with separate functions, such as `v.pipe(v.string(), v.minLength(1))`. Version 1.5.0. Its own comparison: 1.37 kB for a login form, against 17.7 kB with Zod. | Zod, for its larger ecosystem. Measure your own bundle before you choose for size. |
+  | Standard Schema <span class="rv-label">Use: Growing · Maturity: Stable</span> | A shared interface (V1) that Zod, Valibot and ArkType implement. tRPC, TanStack Form and React Hook Form accept any of them. | It is not a validator. You still pick a library. |
+  | Chrome DevTools for agents <span class="rv-label">Use: New · Maturity: Stable</span> | Lets a coding agent use DevTools: record a trace, take a heap snapshot. Version 1.0 since May 2026. | Do not connect it to a signed-in browser that holds sensitive data. |
+  | Modern Web Guidance <span class="rv-label">Use: New · Maturity: Stable</span> | Guides for coding agents, with Baseline data and fallbacks. Version 1.0 since November 2026. | It is Google's own tool. Check its advice against your target. |
+
+  </div>
+
+  Zod has far more downloads: [467.6 million against 35.7 million for Valibot](https://api.npmjs.org/downloads/point/2026-11-18:2026-11-24/zod,valibot) in the week of 18 to 24 November 2026. npm counts each time it serves the package file, for example to a build server, so these numbers compare the packages, not how many teams use them. No source measures how many teams use web workers, so that label is left open.
+
+  ### What AI has changed
+
+  - **Agents often get browser support wrong.** Chrome's Modern Web Guidance team says coding agents rarely check the project's browser target. They rebuild built-in features in JavaScript, or use new features without a fallback. On Chrome's own tests for features that are not in every core browser, unguided models added a feature check or fallback 43% of the time, and 87% with the guidance. These are Google's numbers for Google's tool. Write your target in AGENTS.md or CLAUDE.md, and check fallbacks in review.
+  - **Agents can now see the running page.** With Chrome DevTools for agents, an agent can record a performance trace or take heap snapshots to find detached elements. It can collect the evidence from chapters 1, 2 and 6. A person still has to judge it.
+  - **Model output is outside data.** JSON Schema is how many AI APIs describe structured output, and Zod 4 can produce it. A response in the right shape can still hold wrong values, so the rule from chapter 7 applies: check it where it enters the app.
+  - **AI in the browser is not Baseline yet.** The Translator, Language Detector and Summarizer APIs work only in desktop Chrome 138 and later and in Edge. Treat them like any Limited feature: an extra with a fallback.
+
+  No primary source shows whether AI has changed how often teams use workers or caching, so this guide makes no claim about it.
+
+  <p class="rv-sources">Sources, checked 27 November 2026: [Chrome for Developers, Cross-browser by default (2026)](https://developer.chrome.com/blog/cross-browser-by-default), [Modern Web Guidance 1.0 (2026)](https://developer.chrome.com/blog/modern-web-guidance-v1), [Chrome DevTools for agents 1.0 (2026)](https://developer.chrome.com/blog/devtools-for-agents-v1), [Get started with Chrome DevTools for agents](https://developer.chrome.com/docs/devtools/agents/get-started), [Zod, JSON Schema](https://zod.dev/json-schema), [Claude docs, Structured outputs](https://platform.claude.com/docs/en/build-with-claude/structured-outputs), [web-features 3.48.0](https://www.npmjs.com/package/web-features), [web.dev, VS Code supports Baseline (2025)](https://web.dev/blog/baseline-vscode), [Web Almanac 2025, PWA](https://almanac.httparchive.org/en/2025/pwa), [browserslist](https://github.com/browserslist/browserslist), [Chrome for Developers, Fix memory problems](https://developer.chrome.com/docs/devtools/memory-problems), [RFC 9111](https://www.rfc-editor.org/rfc/rfc9111), [npm registry](https://registry.npmjs.org/) for versions, [Standard Schema](https://standardschema.dev/schema), [Valibot, Comparison](https://valibot.dev/guides/comparison/), [Zod Mini](https://zod.dev/packages/mini), [npm blog, How npm download counts work (2014)](https://blog.npmjs.org/post/92574016600/numeric-precision-matters-how-npm-download-counts-work.html).</p>
+</Review>
 
 <Quiz id="quiz" storageKey="web-platform-foundations">
   <Fragment slot="title">Eight questions.</Fragment>
@@ -539,6 +744,7 @@ import QuizItem from '../components/QuizItem.astro';
   <QuizItem
     n="8"
     art="browsers"
+    href="#browser-support"
     question="How do you decide which browsers to support, and what happens in older ones?"
     scenario="You want to use a new CSS feature. Baseline marks it “Newly available”. Some of your users have older phones that no longer get updates. What is the safest plan?"
     options={[

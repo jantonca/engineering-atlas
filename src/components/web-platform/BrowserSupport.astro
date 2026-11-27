@@ -1,0 +1,367 @@
+---
+import '../../styles/sim.css';
+import { AXIS, CHECKED, FEATURES, TARGETS, at, fmt, future, resultFor, safeFor } from './browser-support';
+
+// The axis ends at the start of AXIS.to, so its last label would sit on the edge.
+const years = Array.from({ length: AXIS.to - AXIS.from }, (_, i) => AXIS.from + i);
+---
+
+<div class="sx bs" data-bs data-target="widely">
+  <fieldset class="sx-ctl">
+    <legend class="sx-label">Which browsers must work?</legend>
+    <div class="sx-choices">
+      {
+        TARGETS.map((t) => (
+          <label class="sx-choice">
+            <input type="radio" name="bs-target" value={t.id} checked={t.id === 'widely'} />
+            <span class="sx-choice-main">{t.name}</span>
+            <span class="sx-choice-sub">{t.sub}</span>
+          </label>
+        ))
+      }
+    </div>
+  </fieldset>
+
+  <figure class="bs-fig">
+    <div class="bs-grid">
+      <div class="bs-scale" aria-hidden="true">
+        <div class="bs-marks">
+          <span class="bs-today-label" data-for="2022 widely" style={`left: ${at(CHECKED)}%`}>27 Nov 2026</span>
+          {TARGETS.map((t) => <span class="bs-cut-label" data-for={t.id} style={`left: ${at(t.cutoff)}%`}>{t.cutLabel}</span>)}
+        </div>
+        <div class="bs-axis">
+          {years.map((y) => <span style={`left: ${at(`${y}-01-01`)}%`} class={y % 2 ? 'is-odd' : ''}>{y}</span>)}
+        </div>
+      </div>
+      <ol class="bs-rows">
+        {
+          FEATURES.map((f) => (
+            <li class="bs-row" data-safe={safeFor(f).join(' ')}>
+              <p class="bs-name">
+                {f.name} <code>{f.code}</code>
+              </p>
+              <div class="bs-track">
+                <span class="bs-today" data-for="2022 widely" style={`left: ${at(CHECKED)}%`} aria-hidden="true" />
+                {TARGETS.map((t) => <span class="bs-cut" data-for={t.id} style={`left: ${at(t.cutoff)}%`} aria-hidden="true" />)}
+                {f.low ? (
+                  <>
+                    <span class="bs-span" style={`left: ${at(f.low)}%; width: ${at(f.high) - at(f.low)}%`} />
+                    <span class="bs-dot is-low" style={`left: ${at(f.low)}%`} />
+                    <span class={`bs-dot is-high${future(f.high) ? ' is-future' : ''}`} style={`left: ${at(f.high)}%`} />
+                    <span class="visually-hidden">
+                      Newly available {fmt(f.low)}. Widely available {fmt(f.high)}
+                      {future(f.high) ? ', expected' : ''}.
+                    </span>
+                  </>
+                ) : (
+                  <span class="bs-limited">{f.note}</span>
+                )}
+              </div>
+              <p class="bs-status">
+                <span class="bs-ok">
+                  <span aria-hidden="true">✓</span> In every target browser
+                </span>
+                <span class="bs-fb">
+                  <span aria-hidden="true">!</span> Missing in some
+                </span>
+              </p>
+            </li>
+          ))
+        }
+      </ol>
+    </div>
+    <ul class="sx-legend bs-legend">
+      <li><span class="bs-key is-low" aria-hidden="true"></span> Newly available: in every core browser</li>
+      <li><span class="bs-key is-high" aria-hidden="true"></span> Widely available: 30 months later</li>
+      <li><span class="bs-key is-cut" aria-hidden="true"></span> Your target: features left of the line are in all its browsers</li>
+    </ul>
+    <figcaption class="visually-hidden">
+      Six CSS features on a timeline from {AXIS.from} to {AXIS.to}. Each row shows when the feature became Newly available and Widely available, and whether every browser in the chosen target has it. Data as of 27 November 2026.
+    </figcaption>
+  </figure>
+
+  <div class="bs-result" aria-live="polite">
+    {
+      TARGETS.map((t) => (
+        <p data-for={t.id}>
+          <code class="bs-query">{t.query}</code>
+          <span>{resultFor(t.id)}</span>
+        </p>
+      ))
+    }
+  </div>
+</div>
+
+<script>
+  for (const root of document.querySelectorAll<HTMLElement>('[data-bs]')) {
+    // Browsers can restore checked radios on reload, so start from the input, not the markup.
+    const sync = () => {
+      root.dataset.target = root.querySelector<HTMLInputElement>('[name="bs-target"]:checked')!.value;
+    };
+    root.addEventListener('change', sync);
+    sync();
+  }
+</script>
+
+<style is:global>
+  /* Show only the text for the chosen target. */
+  .bs [data-for] {
+    display: none;
+  }
+
+  .bs[data-target='2022'] [data-for~='2022'],
+  .bs[data-target='widely'] [data-for~='widely'],
+  .bs[data-target='newly'] [data-for~='newly'] {
+    display: revert;
+  }
+
+  .bs-fig {
+    display: grid;
+    gap: var(--space-4);
+    font-size: var(--label);
+    line-height: var(--diagram-leading);
+  }
+
+  .bs-grid {
+    --name: 15rem;
+    --status: 13rem;
+    position: relative;
+    display: grid;
+    gap: var(--space-2);
+  }
+
+  .bs-scale {
+    display: grid;
+    gap: var(--space-1);
+    margin-inline: var(--name) var(--status);
+  }
+
+  .bs-marks,
+  .bs-axis {
+    position: relative;
+    height: 1.4em;
+  }
+
+  .bs-axis {
+    color: var(--ink-3);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .bs-axis span {
+    position: absolute;
+    transform: translateX(-50%);
+  }
+
+  .bs-axis span:first-child {
+    transform: none;
+  }
+
+  /* Labels end at their line, so they never run past the right edge. */
+  .bs-marks span {
+    position: absolute;
+    transform: translateX(calc(-100% - 6px));
+    white-space: nowrap;
+    color: var(--ink-3);
+  }
+
+  .bs-marks .bs-cut-label {
+    color: var(--ink);
+    font-weight: 700;
+  }
+
+  .bs-today,
+  .bs-cut {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 0;
+    border-left: 2px dotted var(--ink-3);
+  }
+
+  .bs-cut {
+    z-index: 1;
+    margin-left: -1px;
+    border-left: 3px solid var(--ink);
+  }
+
+  .bs-rows {
+    display: grid;
+    margin: var(--space-3) 0 var(--space-4);
+    padding: 0;
+    list-style: none;
+  }
+
+  .bs-row {
+    display: grid;
+    grid-template-columns: var(--name) minmax(0, 1fr) var(--status);
+    align-items: center;
+    min-height: 3rem;
+    border-bottom: 2px solid var(--faint);
+  }
+
+  .bs-name {
+    padding-right: var(--space-3);
+    font-weight: 700;
+  }
+
+  .bs-name code {
+    display: block;
+    color: var(--ink-2);
+    font-weight: 400;
+  }
+
+  .bs-track {
+    position: relative;
+    height: 100%;
+    min-height: 3rem;
+  }
+
+  .bs-span {
+    position: absolute;
+    top: 50%;
+    height: 4px;
+    margin-top: -2px;
+    background: var(--ink-3);
+  }
+
+  .bs-dot {
+    position: absolute;
+    top: 50%;
+    width: 16px;
+    height: 16px;
+    margin: -8px 0 0 -8px;
+    border-radius: 50%;
+    background: var(--ink);
+  }
+
+  .bs-dot.is-high {
+    border: 3px solid var(--ink);
+    background: var(--paper);
+  }
+
+  .bs-dot.is-future {
+    border-style: dashed;
+  }
+
+  /* Above the target line: no target makes a Limited feature safe. */
+  .bs-limited {
+    position: absolute;
+    z-index: 2;
+    top: 50%;
+    left: 0;
+    right: 0;
+    min-height: 1.75em;
+    translate: 0 -50%;
+    display: flex;
+    align-items: center;
+    padding-inline: var(--space-2);
+    color: var(--warn);
+    font-weight: 700;
+    background: repeating-linear-gradient(
+      -45deg,
+      color-mix(in srgb, var(--warn) 20%, var(--paper)) 0 5px,
+      color-mix(in srgb, var(--warn) 6%, var(--paper)) 5px 11px
+    );
+  }
+
+  .bs-status {
+    padding-left: var(--space-3);
+    font-weight: 700;
+  }
+
+  .bs-ok {
+    display: none;
+    color: var(--good);
+  }
+
+  .bs-fb {
+    color: var(--warn);
+  }
+
+  .bs[data-target='2022'] .bs-row[data-safe~='2022'] .bs-ok,
+  .bs[data-target='widely'] .bs-row[data-safe~='widely'] .bs-ok,
+  .bs[data-target='newly'] .bs-row[data-safe~='newly'] .bs-ok {
+    display: inline;
+  }
+
+  .bs[data-target='2022'] .bs-row[data-safe~='2022'] .bs-fb,
+  .bs[data-target='widely'] .bs-row[data-safe~='widely'] .bs-fb,
+  .bs[data-target='newly'] .bs-row[data-safe~='newly'] .bs-fb {
+    display: none;
+  }
+
+  .bs-legend {
+    font-size: var(--label);
+  }
+
+  .bs-key {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--ink);
+  }
+
+  .bs-key.is-high {
+    border: 3px solid var(--ink);
+    background: var(--paper);
+  }
+
+  .bs-key.is-cut {
+    width: 3px;
+    height: 18px;
+    border-radius: 0;
+  }
+
+  .bs-result {
+    max-width: 44rem;
+    font-size: clamp(1.125rem, 1.6vw, 1.3rem);
+    font-weight: 600;
+    text-wrap: pretty;
+  }
+
+  .bs-result p {
+    margin: 0;
+  }
+
+  .bs-query {
+    display: block;
+    width: fit-content;
+    margin-bottom: var(--space-2);
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: var(--faint);
+    font-size: var(--text-small);
+    font-weight: 400;
+  }
+
+  .bs-query::before {
+    content: '.browserslistrc  ';
+    color: var(--ink-3);
+    white-space: pre;
+  }
+
+  @media (max-width: 62rem) {
+    .bs-grid {
+      --name: 0rem;
+      --status: 0rem;
+    }
+
+    .bs-row {
+      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-areas: 'name status' 'track track';
+      padding: var(--space-2) 0;
+    }
+
+    .bs-name { grid-area: name; }
+    .bs-status { grid-area: status; }
+    .bs-track { grid-area: track; min-height: 2rem; }
+
+    .bs-axis span.is-odd { display: none; }
+
+    .bs-name code {
+      display: inline;
+      white-space: nowrap;
+    }
+  }
+</style>

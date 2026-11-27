@@ -1,0 +1,230 @@
+---
+interface Props {
+  id: string;
+  title: string;
+}
+
+const { id, title } = Astro.props;
+---
+
+<section class="review" id={id} aria-labelledby={`${id}-title`}>
+  <header class="rv-head">
+    <h2 id={`${id}-title`} class="rv-kicker">Quick review</h2>
+    <p class="rv-title">{title}</p>
+    <div class="rv-intro"><slot name="intro" /></div>
+  </header>
+  <div class="rv-body"><slot /></div>
+</section>
+
+<style>
+  .review {
+    max-width: var(--page-max);
+    margin-inline: auto;
+    padding: var(--space-6) var(--gutter) var(--space-7);
+  }
+
+  .rv-head {
+    display: grid;
+    gap: var(--space-3);
+    margin-bottom: var(--space-6);
+  }
+
+  .rv-kicker {
+    color: var(--ink-2);
+    font-size: var(--text-small);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .rv-title {
+    max-width: 16ch;
+    font-weight: 850;
+    font-variation-settings: 'wdth' 118;
+    font-size: clamp(2.75rem, 7vw, 6rem);
+    line-height: 0.95;
+    letter-spacing: -0.025em;
+  }
+
+  .rv-intro {
+    max-width: var(--measure);
+    color: var(--ink-2);
+  }
+
+  .rv-body {
+    display: grid;
+    gap: var(--space-4);
+    font-size: var(--text-small);
+  }
+
+  .rv-body :global(h3) {
+    margin-top: var(--space-6);
+    font-weight: 850;
+    font-variation-settings: 'wdth' 118;
+    font-size: clamp(1.75rem, 3.5vw, 2.5rem);
+    line-height: 1;
+    letter-spacing: -0.02em;
+  }
+
+  .rv-body :global(h3:first-child) {
+    margin-top: 0;
+  }
+
+  .rv-body :global(h3 + p) {
+    max-width: var(--measure);
+    color: var(--ink-2);
+  }
+
+  /* Summary: the chapter number leads each line. */
+  .rv-body :global(.rv-summary) {
+    display: grid;
+    gap: var(--space-3);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    counter-reset: rv;
+    font-size: clamp(1.125rem, 1.6vw, 1.3rem);
+  }
+
+  .rv-body :global(.rv-summary li) {
+    display: grid;
+    grid-template-columns: 3rem minmax(0, 46rem);
+    counter-increment: rv;
+  }
+
+  .rv-body :global(.rv-summary li::before) {
+    content: counter(rv);
+    font-weight: 850;
+    font-variation-settings: 'wdth' 125;
+  }
+
+  /* Key terms: one column per chapter, as many as fit. */
+  .rv-body :global(.rv-terms) {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
+    gap: var(--space-5) var(--space-5);
+  }
+
+  .rv-body :global(.rv-terms h4) {
+    margin: 0 0 var(--space-2);
+    font-size: var(--text-small);
+    font-weight: 750;
+  }
+
+  .rv-body :global(.rv-terms dl) {
+    display: grid;
+    gap: 2px;
+    margin: 0;
+  }
+
+  .rv-body :global(.rv-terms dd + dt) {
+    margin-top: var(--space-3);
+  }
+
+  .rv-body :global(.rv-terms dt) {
+    font-weight: 700;
+  }
+
+  .rv-body :global(.rv-terms dd) {
+    margin: 0;
+    color: var(--ink-2);
+  }
+
+  .rv-body :global(.rv-table) {
+    overflow-x: auto;
+  }
+
+  .rv-body :global(table) {
+    width: 100%;
+    min-width: 40rem;
+    border-collapse: collapse;
+  }
+
+  .rv-body :global(th),
+  .rv-body :global(td) {
+    padding: var(--space-3) var(--space-3) var(--space-3) 0;
+    border-bottom: 2px solid var(--faint);
+    text-align: left;
+    vertical-align: top;
+  }
+
+  .rv-body :global(th) {
+    color: var(--ink-2);
+    font-weight: 650;
+  }
+
+  .rv-body :global(td:first-child) {
+    width: 13rem;
+    font-weight: 700;
+  }
+
+  .rv-body :global(.rv-label) {
+    display: block;
+    width: fit-content;
+    margin-top: var(--space-1);
+    color: var(--ink-2);
+    font-weight: 500;
+  }
+
+  /* On a phone, each row becomes a block. The wrapper names columns 2 and 3 in --c2 and --c3. */
+  @media (max-width: 40rem) {
+    .rv-body :global(table),
+    .rv-body :global(tbody),
+    .rv-body :global(tr),
+    .rv-body :global(td) {
+      display: block;
+      width: auto;
+      min-width: 0;
+    }
+
+    .rv-body :global(thead) {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+    }
+
+    .rv-body :global(tr) {
+      padding: var(--space-3) 0;
+      border-bottom: 2px solid var(--faint);
+    }
+
+    .rv-body :global(td) {
+      padding: var(--space-1) 0;
+      border: 0;
+    }
+
+    .rv-body :global(td:first-child) {
+      width: auto;
+    }
+
+    .rv-body :global(td:nth-child(2)::before),
+    .rv-body :global(td:nth-child(3)::before) {
+      display: block;
+      color: var(--ink-3);
+      font-size: 0.8125rem;
+      font-weight: 650;
+    }
+
+    .rv-body :global(td:nth-child(2)::before) {
+      content: var(--c2);
+    }
+
+    .rv-body :global(td:nth-child(3)::before) {
+      content: var(--c3);
+    }
+  }
+
+  .rv-body :global(ul) {
+    display: grid;
+    gap: var(--space-3);
+    max-width: 46rem;
+    padding-left: 1.25rem;
+  }
+
+  .rv-body :global(.rv-sources) {
+    max-width: 46rem;
+    color: var(--ink-2);
+  }
+</style>
