@@ -1,0 +1,23 @@
+/* Palette for the small drawings in guide maps and self-test questions. Each guide draws its own shapes. */
+
+.guide-art {
+  overflow: visible;
+}
+
+.guide-art .ink { fill: var(--ink); }
+.guide-art .bad { fill: var(--bad); }
+.guide-art .good { fill: var(--good); }
+.guide-art .stroke { fill: none; stroke: var(--ink); stroke-width: 3; }
+.guide-art .thin { stroke: var(--ink-3); stroke-width: 2; }
+.guide-art .dash { stroke: var(--ink-3); stroke-width: 3; stroke-dasharray: 6 6; }
+.guide-art .frame { fill: none; stroke: var(--ink); stroke-width: 3; }
+.guide-art .frame.dashed { stroke: var(--ink-3); stroke-dasharray: 6 5; }
+.guide-art .frame.faded { stroke: var(--ink-3); }
+.guide-art .bad-frame { stroke: var(--bad); }
+.guide-art .track { fill: none; stroke: var(--faint); stroke-width: 8; }
+.guide-art .arc { fill: none; stroke-width: 8; }
+.guide-art .good-stroke { stroke: var(--good); }
+.guide-art .bad-stroke { fill: none; stroke: var(--bad); stroke-width: 3; }
+.guide-art .warn-stroke { fill: none; stroke: var(--warn); stroke-width: 3; }
+.guide-art .warn-dash { stroke: var(--warn); stroke-width: 3; stroke-dasharray: 4 5; }
+.guide-art .bad-line { fill: none; stroke: var(--bad); stroke-width: 3; stroke-linejoin: round; }

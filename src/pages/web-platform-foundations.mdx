@@ -20,6 +20,7 @@ nav:
 
 import Chapter from '../components/Chapter.astro';
 import BugMap from '../components/web-platform/BugMap.astro';
+import BugArt from '../components/web-platform/BugArt.astro';
 import RenderPipeline from '../components/web-platform/RenderPipeline.astro';
 import EventLoopSim from '../components/web-platform/EventLoopSim.astro';
 import WorkerSim from '../components/web-platform/WorkerSim.astro';
@@ -519,7 +520,6 @@ import QuizItem from '../components/QuizItem.astro';
 
   <QuizItem
     n="1"
-    art="render"
     href="#render-pipeline"
     question="What does the browser do between receiving HTML and showing pixels on the screen?"
     scenario="A script changes the width of a box on the page. Which steps must the browser run again before the user sees the new width?"
@@ -544,6 +544,8 @@ import QuizItem from '../components/QuizItem.astro';
       'A change to size, or to position with top or left, runs layout again. transform can skip layout and paint.',
     ]}
   >
+    <BugArt slot="art" art="render" />
+
     The browser reads the HTML and builds the DOM, a tree of all the elements. It reads the CSS and builds the CSSOM, a tree of all the style rules. It combines them into the render tree. The render tree leaves out elements with `display: none`. An element with `visibility: hidden` stays in, because it still takes up space.
 
     Next comes layout: the browser computes where each element goes and how big it is. Then paint: it draws the pixels into layers. Then composite: it puts the layers together on screen. The first pixels appear only after these steps. When a script changes sizes later, layout and paint run again.
@@ -551,7 +553,6 @@ import QuizItem from '../components/QuizItem.astro';
 
   <QuizItem
     n="2"
-    art="main"
     href="#event-loop"
     question="What is the event loop? Why can a long task make the page feel frozen?"
     scenario="A click handler sorts a big list for 400 ms. The user taps “Add to cart” 100 ms after the sort starts. When can the button show “Added”?"
@@ -576,6 +577,8 @@ import QuizItem from '../components/QuizItem.astro';
       'Fixes: split the work and yield, or move it to a web worker.',
     ]}
   >
+    <BugArt slot="art" art="main" />
+
     The event loop is how the browser shares one main thread. It takes a task from a queue, for example a click handler, and runs it to the end. Between tasks it can update the screen. Then it takes the next task.
 
     A long task runs for more than 50 ms. While it runs, clicks and key presses wait, and changes your code makes to the page wait too. The user sees a frozen page, even if scrolling still works, because the browser scrolls on a separate compositor thread. To fix it, split the work into small tasks and give the browser a turn between them. `scheduler.yield()` does this, but not every browser has it yet, so keep a `setTimeout` fallback. Or move heavy work to a web worker.
@@ -583,7 +586,6 @@ import QuizItem from '../components/QuizItem.astro';
 
   <QuizItem
     n="3"
-    art="worker"
     href="#web-workers"
     question="When would you move work to a web worker?"
     scenario="The user drops a 40 MB CSV file onto the page. The page parses it, and typing in the search box lags for 2 seconds. Which change helps most?"
@@ -608,6 +610,8 @@ import QuizItem from '../components/QuizItem.astro';
       'If the work needs the DOM, split it into small tasks instead.',
     ]}
   >
+    <BugArt slot="art" art="worker" />
+
     Use a worker for heavy work that does not need the DOM. Examples: parsing a big file, processing an image, building a search index. The main thread stays free for input and screen updates.
 
     A worker is not free. It cannot change the page. Data in a message is copied by default, which is called structured cloning. For large binary data, transfer it instead: `postMessage(buffer, [buffer])` moves the `ArrayBuffer` to the worker without a copy, and the page can no longer use it. The parsed rows that come back are copied, which costs time for a big result. For small work, these costs can be larger than the gain. If the work needs the DOM, split it into small tasks on the main thread instead.
@@ -615,7 +619,6 @@ import QuizItem from '../components/QuizItem.astro';
 
   <QuizItem
     n="4"
-    art="order"
     href="#out-of-order"
     question="Two requests finish in the wrong order, and the page shows old data. Why does this happen, and how do you prevent it?"
     scenario="The user types “ca” at 0 ms, and the page sends a request that takes 900 ms. At 200 ms the user types “cat”, and the page sends a request that takes 300 ms. The code shows each response when it arrives. What does the user see at the end?"
@@ -640,6 +643,8 @@ import QuizItem from '../components/QuizItem.astro';
       'Debouncing sends fewer requests, but it does not fix the order.',
     ]}
   >
+    <BugArt slot="art" art="order" />
+
     Each request goes over the network on its own. A slow server, a busy network or a bigger result can make an older request finish later. If the code shows every response when it arrives, the last one to arrive wins, not the last one sent.
 
     There are two fixes. Ignore old responses: give each request a number and use a response only if its number is the latest. Or cancel old requests: pass an `AbortController` signal to `fetch()` and call `abort()` when a new search starts. With either fix, check that the request is still the latest just before you apply its result. Debouncing, which waits until the user stops typing, sends fewer requests. It does not stop a slow one from arriving last.
@@ -647,7 +652,6 @@ import QuizItem from '../components/QuizItem.astro';
 
   <QuizItem
     n="5"
-    art="cache"
     href="#http-caching"
     question="How does HTTP caching work? What do Cache-Control and ETag do?"
     scenario="app.js is sent with Cache-Control: max-age=3600 and keeps the same file name. A user loaded it 10 minutes ago. You deploy a fix now. The user visits the page again (a normal visit, not a reload). Which app.js runs?"
@@ -672,6 +676,8 @@ import QuizItem from '../components/QuizItem.astro';
       'Common policy: hashed file names with a long max-age, and no-cache for HTML.',
     ]}
   >
+    <BugArt slot="art" art="cache" />
+
     `Cache-Control` tells the browser how long a copy stays fresh, for example `max-age=3600` for one hour. While it is fresh, the browser uses it and sends no request. After that, the copy is stale. The browser asks the server whether it changed and sends the `ETag`, a version label for the file, in `If-None-Match`. The server answers `304 Not Modified` with no body, or `200` with the new file.
 
     A common policy: give static files a new name for each version, such as `app.3f9a.js`, and cache them for a long time. Send HTML with `no-cache`, which means the browser may store it but must check before each use. `no-store` means do not store it at all.
@@ -679,7 +685,6 @@ import QuizItem from '../components/QuizItem.astro';
 
   <QuizItem
     n="6"
-    art="memory"
     href="#memory-leaks"
     question="What causes memory leaks in a page that stays open for hours?"
     scenario="A dashboard stays open all day. Each time the user opens a panel, the code adds a resize listener on window. The listener's function uses the panel, to resize it. Closing the panel removes it from the page, but not the listener. What happens over the day?"
@@ -704,6 +709,8 @@ import QuizItem from '../components/QuizItem.astro';
       'Find them with heap snapshots in the DevTools Memory panel.',
     ]}
   >
+    <BugArt slot="art" art="memory" />
+
     JavaScript frees memory by itself, but only memory that nothing can reach any more. A leak happens when something long-lived keeps a reference to something you no longer need. Common examples: an event listener or timer that is never removed, a subscription that is never closed, a cache that only grows, or a removed element that a variable still holds.
 
     Each one is small, but the page repeats it for hours. To find them, take heap snapshots in the DevTools Memory panel before and after a repeated action, and compare. Look for detached elements. To fix them, remove listeners, timers and subscriptions when a component closes.
@@ -711,7 +718,6 @@ import QuizItem from '../components/QuizItem.astro';
 
   <QuizItem
     n="7"
-    art="data"
     href="#runtime-validation"
     question="Why can an app with correct TypeScript types still fail on an API response?"
     scenario="Your type says user.address.city is a string. The API team ships a change, and some users now have no address. TypeScript showed no errors. What happens in the browser?"
@@ -736,6 +742,8 @@ import QuizItem from '../components/QuizItem.astro';
       'Decide what the page shows when the data is wrong.',
     ]}
   >
+    <BugArt slot="art" art="data" />
+
     TypeScript checks your code before it runs. The API response arrives later, while the page runs. By then the types are gone: TypeScript removes them when it compiles to JavaScript. So a type is a promise you make, not a check.
 
     To make it safe, check the data where it enters the app. A schema library such as Zod or Valibot checks the response and gives you typed data, or a clear error. Then decide what the page does with bad data: show a message, use a default, or report it.
@@ -743,7 +751,6 @@ import QuizItem from '../components/QuizItem.astro';
 
   <QuizItem
     n="8"
-    art="browsers"
     href="#browser-support"
     question="How do you decide which browsers to support, and what happens in older ones?"
     scenario="You want to use a new CSS feature. Baseline marks it “Newly available”. Some of your users have older phones that no longer get updates. What is the safest plan?"
@@ -768,6 +775,8 @@ import QuizItem from '../components/QuizItem.astro';
       'Progressive enhancement: the core works everywhere, extras where possible.',
     ]}
   >
+    <BugArt slot="art" art="browsers" />
+
     Start with your users. Look at your analytics, your markets and your customers' needs, for example a company that must use an older browser. Baseline gives a shared reference. The core browsers are Chrome and Firefox on desktop and Android, Edge on desktop, and Safari on macOS and iOS. "Newly available" means a feature works in the latest version of all of them. "Widely available" means 30 months have passed since then.
 
     Write your target in a browserslist config, so tools such as Autoprefixer and Babel use the same list. In older browsers, use progressive enhancement: build the core so it works everywhere, and add newer features only where the browser supports them. Check support with `@supports` in CSS or a feature check in JavaScript.
